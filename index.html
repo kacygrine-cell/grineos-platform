@@ -742,11 +742,81 @@ function HBarChart({data}){
   );
 }
 
+// Help Tooltip Component
+function HelpTooltip({term, definition, children}) {
+  const [showTooltip, setShowTooltip] = useState(false);
+  
+  return React.createElement("span", {
+    style: {position: 'relative', display: 'inline-block'}
+  },
+    React.createElement("span", {
+      onMouseEnter: () => setShowTooltip(true),
+      onMouseLeave: () => setShowTooltip(false),
+      style: {
+        borderBottom: `1px dotted ${C.soft}`,
+        cursor: 'help'
+      }
+    }, children),
+    showTooltip && React.createElement("div", {
+      style: {
+        position: 'absolute',
+        bottom: '100%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        marginBottom: 8,
+        padding: '8px 12px',
+        background: C.navy,
+        color: '#fff',
+        borderRadius: 6,
+        fontSize: 12,
+        lineHeight: 1.4,
+        maxWidth: 250,
+        zIndex: 1000,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        whiteSpace: 'normal'
+      }
+    },
+      React.createElement("div", {style: {fontWeight: 600, marginBottom: 4}}, term),
+      React.createElement("div", null, definition),
+      React.createElement("div", {style: {
+        position: 'absolute',
+        top: '100%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 0,
+        height: 0,
+        borderLeft: '6px solid transparent',
+        borderRight: '6px solid transparent',
+        borderTop: `6px solid ${C.navy}`
+      }})
+    )
+  );
+}
+
 function MetricCard({label,value,sub,color=C.navy,regime}){
+  const tooltips = {
+    "Total Return": "Cumulative percentage gain or loss on investment including dividends and interest",
+    "Expected Return": "Projected annualized return based on historical performance and regime analysis",
+    "Volatility": "Measure of price variability expressed as standard deviation of returns",
+    "Sharpe Ratio": "Risk-adjusted return metric: (Return - Risk-free Rate) / Volatility",
+    "Max Drawdown": "Largest peak-to-trough decline in portfolio value during any period",
+    "Calmar Ratio": "Return per unit of downside risk: Annualized Return / Max Drawdown",
+    "Portfolio Volatility": "Standard deviation of portfolio returns over specified time period",
+    "Portfolio VaR": "Value at Risk - potential loss at given confidence level over time horizon",
+    "Tracking Error": "Standard deviation of difference between portfolio and benchmark returns",
+    "Effective N": "Number of truly independent positions - measure of diversification",
+    "Holdings Count": "Total number of individual securities in the portfolio",
+    "Portfolio Turnover": "Percentage of portfolio traded over a given period - measures activity level"
+  };
+
+  const tooltip = tooltips[label];
+  
   return React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"18px 16px",position:"relative"}},
     React.createElement("div",{style:{position:"absolute",top:0,left:0,width:3,height:"100%",background:color,borderRadius:"3px 0 0 3px"}}),
     React.createElement("div",{style:{marginLeft:8}},
-      React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:4}},label),
+      React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:4}},
+        tooltip ? React.createElement(HelpTooltip,{term:label,definition:tooltip},label) : label
+      ),
       React.createElement("div",{style:{fontSize:20,fontWeight:600,color:C.navy,fontFamily:T.display}},value),
       sub && React.createElement("div",{style:{fontSize:12,color:C.faint,marginTop:2}},sub),
       regime && React.createElement("div",{style:{fontSize:10,color:regime.color,marginTop:4,fontWeight:500}},`${regime.impact > 0 ? '+' : ''}${regime.impact}% regime impact`)
@@ -763,6 +833,311 @@ function DataTable({headers,rows}){
       rows.map((row,i)=>
         React.createElement("div",{key:i,style:{display:"grid",gridTemplateColumns:`repeat(${headers.length}, 1fr)`,padding:"12px 16px",borderBottom:i<rows.length-1?`1px solid ${C.borderLight}`:"none",fontSize:13}},
           row.map((cell,j)=>React.createElement("div",{key:j,style:{color:C.navy}},cell))
+        )
+      )
+    )
+  );
+}
+
+function LearnTab() {
+  const [activeLearnSection, setActiveLearnSection] = useState('overview');
+  
+  const learnSections = {
+    overview: "Platform Overview",
+    regimes: "Market Regimes",
+    metrics: "Key Metrics", 
+    optimization: "Optimization",
+    risk: "Risk Management",
+    glossary: "Glossary"
+  };
+
+  const glossaryTerms = [
+    {
+      term: "Allocation",
+      definition: "Distribution of capital across different asset classes (equities, bonds, alternatives).",
+      example: "60% equities, 30% bonds, 10% alternatives"
+    },
+    {
+      term: "Alpha",
+      definition: "Excess return generated above a benchmark, after adjusting for risk.",
+      example: "Portfolio return 12% vs benchmark 10% = 2% alpha"
+    },
+    {
+      term: "Beta",
+      definition: "Measure of portfolio sensitivity to market movements. Beta = 1 moves with market.",
+      example: "Beta 1.2 = 20% more volatile than market"
+    },
+    {
+      term: "Correlation",
+      definition: "Statistical measure of how two assets move together. Range: -1 to +1.",
+      example: "Stocks/bonds typically have negative correlation"
+    },
+    {
+      term: "Drawdown", 
+      definition: "Peak-to-trough decline in portfolio value, expressed as percentage.",
+      example: "$1M portfolio drops to $850K = 15% drawdown"
+    },
+    {
+      term: "Factor Loading",
+      definition: "Exposure of portfolio to systematic risk factors (value, momentum, quality).",
+      example: "High value loading = bias toward undervalued stocks"
+    },
+    {
+      term: "Regime Detection",
+      definition: "Identifying distinct market periods based on volatility, momentum, liquidity patterns.",
+      example: "2008 = Protection regime, 2017 = Expansion regime"
+    },
+    {
+      term: "Rebalancing",
+      definition: "Adjusting portfolio weights back to target allocation.",
+      example: "Monthly rebalancing maintains 60/40 equity/bond target"
+    },
+    {
+      term: "Sharpe Ratio",
+      definition: "Risk-adjusted return metric: (Return - Risk-free Rate) / Volatility",
+      example: "Higher Sharpe = better risk-adjusted performance"
+    },
+    {
+      term: "VIX",
+      definition: "Volatility Index - measures expected market volatility over next 30 days.",
+      example: "VIX < 20 = low volatility, VIX > 30 = high volatility"
+    }
+  ];
+
+  return React.createElement("div", {style: {padding: "32px 40px", maxWidth: 1000, animation: "fadeUp .4s ease"}},
+    // Header
+    React.createElement("div", {style: {
+      marginBottom: 28,
+      borderBottom: `1px solid ${C.border}`,
+      paddingBottom: 16
+    }},
+      React.createElement("div", {style: {
+        fontSize: 12,
+        color: C.soft,
+        textTransform: "uppercase",
+        letterSpacing: "0.12em",
+        fontWeight: 500,
+        marginBottom: 6
+      }}, "Educational Center"),
+      React.createElement("h2", {style: {
+        fontFamily: T.display,
+        fontSize: 26,
+        fontWeight: 600,
+        color: C.navy,
+        fontStyle: "italic"
+      }}, "Learn Regime Intelligence")
+    ),
+
+    // Navigation
+    React.createElement("nav", {style: {
+      display: 'flex',
+      gap: 16,
+      marginBottom: 32,
+      borderBottom: `1px solid ${C.borderLight}`,
+      paddingBottom: 16
+    }},
+      Object.entries(learnSections).map(([key, label]) =>
+        React.createElement("button", {
+          key,
+          onClick: () => setActiveLearnSection(key),
+          style: {
+            background: 'none',
+            border: 'none',
+            fontSize: 14,
+            fontWeight: activeLearnSection === key ? 600 : 400,
+            color: activeLearnSection === key ? C.navy : C.soft,
+            cursor: 'pointer',
+            padding: '8px 12px',
+            borderRadius: 6,
+            backgroundColor: activeLearnSection === key ? C.accentLight : 'transparent',
+            transition: 'all 0.2s'
+          }
+        }, label)
+      )
+    ),
+
+    // Content sections
+    activeLearnSection === 'overview' && React.createElement("div", null,
+      React.createElement("h3", {style: {fontSize: 20, fontWeight: 600, color: C.navy, marginBottom: 16}}, "GrineOS Platform Overview"),
+      React.createElement("div", {style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+        gap: 24,
+        marginBottom: 32
+      }},
+        [
+          {
+            title: "Demo Portfolio",
+            desc: "Explore Sarah Mitchell's $2M portfolio with regime-aware analytics and performance metrics.",
+            features: ["Real portfolio data", "Regime impact analysis", "Interactive charts"]
+          },
+          {
+            title: "AI Agent",
+            desc: "Chat with our CIO-level agent for portfolio advice, market insights, and allocation guidance.",
+            features: ["Structured responses", "Regime context", "Real-time analysis"]
+          },
+          {
+            title: "Optimizer",
+            desc: "Advanced portfolio optimization with regime-aware constraints and risk management.",
+            features: ["Multiple objectives", "Regime adjustments", "Turnover analysis"]
+          },
+          {
+            title: "Analytics",
+            desc: "Comprehensive risk decomposition, factor analysis, and performance attribution.",
+            features: ["Risk metrics", "Factor exposure", "Regime performance"]
+          }
+        ].map((feature, i) =>
+          React.createElement("div", {key: i, style: {
+            background: C.white,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            padding: 20
+          }},
+            React.createElement("h4", {style: {
+              fontSize: 16,
+              fontWeight: 600,
+              color: C.navy,
+              marginBottom: 8
+            }}, feature.title),
+            React.createElement("p", {style: {
+              fontSize: 14,
+              color: C.soft,
+              marginBottom: 12,
+              lineHeight: 1.5
+            }}, feature.desc),
+            React.createElement("ul", {style: {listStyle: 'none', padding: 0, margin: 0}},
+              feature.features.map((f, j) =>
+                React.createElement("li", {key: j, style: {
+                  fontSize: 12,
+                  color: C.navy,
+                  marginBottom: 4,
+                  paddingLeft: 12,
+                  position: 'relative'
+                }},
+                  React.createElement("span", {style: {
+                    position: 'absolute',
+                    left: 0,
+                    color: C.green
+                  }}, "✓"),
+                  f
+                )
+              )
+            )
+          )
+        )
+      )
+    ),
+
+    activeLearnSection === 'glossary' && React.createElement("div", null,
+      React.createElement("h3", {style: {fontSize: 20, fontWeight: 600, color: C.navy, marginBottom: 16}}, "Financial Terms & Definitions"),
+      React.createElement("div", {style: {
+        display: 'grid',
+        gap: 16
+      }},
+        glossaryTerms.map((item, i) =>
+          React.createElement("div", {key: i, style: {
+            background: C.white,
+            border: `1px solid ${C.border}`,
+            borderRadius: 8,
+            padding: 20
+          }},
+            React.createElement("h4", {style: {
+              fontSize: 16,
+              fontWeight: 600,
+              color: C.navy,
+              marginBottom: 8,
+              fontFamily: T.display
+            }}, item.term),
+            React.createElement("p", {style: {
+              fontSize: 14,
+              color: C.navy,
+              marginBottom: 8,
+              lineHeight: 1.5
+            }}, item.definition),
+            React.createElement("div", {style: {
+              background: C.borderLight,
+              padding: 12,
+              borderRadius: 6,
+              fontSize: 13,
+              color: C.soft,
+              fontStyle: 'italic'
+            }}, `Example: ${item.example}`)
+          )
+        )
+      )
+    ),
+
+    activeLearnSection === 'regimes' && React.createElement("div", null,
+      React.createElement("h3", {style: {fontSize: 20, fontWeight: 600, color: C.navy, marginBottom: 16}}, "Understanding Market Regimes"),
+      React.createElement("p", {style: {fontSize: 16, color: C.soft, marginBottom: 24, lineHeight: 1.6}}, 
+        "Market regimes represent distinct periods where financial markets exhibit consistent behavioral patterns. Our three-regime model captures the essential market conditions that drive allocation decisions."
+      ),
+      React.createElement("div", {style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: 24
+      }},
+        Object.entries(REGIME_PARAMETERS).map(([key, regime]) =>
+          React.createElement("div", {key, style: {
+            background: regime.bgColor,
+            border: `2px solid ${regime.color}33`,
+            borderRadius: 12,
+            padding: 24,
+            position: 'relative'
+          }},
+            React.createElement("div", {style: {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 4,
+              background: regime.color
+            }}),
+            React.createElement("h4", {style: {
+              fontSize: 18,
+              fontWeight: 700,
+              color: regime.color,
+              marginBottom: 12,
+              fontFamily: T.display
+            }}, regime.label),
+            React.createElement("p", {style: {
+              fontSize: 14,
+              color: C.navy,
+              marginBottom: 16,
+              lineHeight: 1.5
+            }}, regime.description),
+            React.createElement("div", {style: {marginBottom: 16}},
+              React.createElement("div", {style: {
+                fontSize: 12,
+                fontWeight: 600,
+                color: C.soft,
+                textTransform: 'uppercase',
+                marginBottom: 8
+              }}, "Allocation Constraints"),
+              React.createElement("ul", {style: {listStyle: 'none', padding: 0, margin: 0}},
+                [
+                  `Max Equity: ${(regime.equityMax * 100).toFixed(0)}%`,
+                  `Min Cash: ${(regime.cashMin * 100).toFixed(0)}%`,
+                  `Target Vol: ${(regime.volatilityTarget[0] * 100).toFixed(0)}-${(regime.volatilityTarget[1] * 100).toFixed(0)}%`
+                ].map((constraint, i) =>
+                  React.createElement("li", {key: i, style: {
+                    fontSize: 13,
+                    color: C.navy,
+                    marginBottom: 4,
+                    paddingLeft: 16,
+                    position: 'relative'
+                  }},
+                    React.createElement("span", {style: {
+                      position: 'absolute',
+                      left: 0,
+                      color: regime.color
+                    }}, "•"),
+                    constraint
+                  )
+                )
+              )
+            )
+          )
         )
       )
     )
@@ -1352,8 +1727,444 @@ const TABS=[
   {id:"optimizer",label:"Optimizer"}, 
   {id:"backtest",label:"Backtest"},
   {id:"scenarios",label:"Scenarios"},
-  {id:"analytics",label:"Analytics"}
+  {id:"analytics",label:"Analytics"},
+  {id:"learn",label:"Learn"}
 ];
+
+/* ═══ EDUCATIONAL LANDING PAGE ═══ */
+function EducationalLanding({onEnterPlatform}) {
+  const [activeSection, setActiveSection] = useState('regimes');
+  
+  const sections = {
+    regimes: "Market Regimes",
+    metrics: "Portfolio Metrics", 
+    indicators: "Risk Indicators",
+    optimization: "Optimization"
+  };
+
+  const regimeContent = {
+    title: "What Are Market Regimes?",
+    intro: "Market regimes are distinct periods where financial markets exhibit similar behavioral patterns. Understanding these regimes is crucial for sophisticated allocation decisions.",
+    regimes: [
+      {
+        name: "EXPANSION",
+        color: "#16a34a",
+        bgColor: "rgba(22,163,74,0.1)",
+        description: "Low volatility, positive momentum, abundant liquidity. Risk assets outperform.",
+        characteristics: ["VIX < 20", "Rising asset prices", "Tight credit spreads", "High investor confidence"],
+        allocation: "Overweight equities, underweight defensive assets",
+        example: "Q4 2023 - Q2 2024: Post-inflation peak recovery"
+      },
+      {
+        name: "PROTECTION", 
+        color: "#dc2626",
+        bgColor: "rgba(220,38,38,0.1)",
+        description: "High volatility, negative momentum, liquidity stress. Defensive positioning critical.",
+        characteristics: ["VIX > 30", "Falling asset prices", "Wide credit spreads", "Flight to quality"],
+        allocation: "Overweight bonds/cash, underweight equities",
+        example: "March 2020: COVID-19 market crash"
+      },
+      {
+        name: "TRANSITION",
+        color: "#b45309",
+        bgColor: "rgba(180,83,9,0.1)", 
+        description: "Mixed signals, regime uncertainty. Balanced approach with active management.",
+        characteristics: ["VIX 20-30", "Choppy markets", "Unstable correlations", "High dispersion"],
+        allocation: "Balanced allocation, tactical adjustments",
+        example: "H2 2022: Fed pivot uncertainty period"
+      }
+    ]
+  };
+
+  const metricsContent = {
+    title: "Essential Portfolio Metrics",
+    intro: "Key metrics that quantify portfolio performance, risk, and efficiency.",
+    metrics: [
+      {
+        name: "Sharpe Ratio",
+        formula: "(Return - Risk-free Rate) / Volatility",
+        meaning: "Risk-adjusted return efficiency",
+        goodValue: "> 1.0",
+        interpretation: "Higher = better risk-adjusted performance"
+      },
+      {
+        name: "Max Drawdown", 
+        formula: "Peak-to-trough decline (%)",
+        meaning: "Worst loss from peak to trough",
+        goodValue: "< 15%",
+        interpretation: "Lower = better downside protection"
+      },
+      {
+        name: "Volatility (σ)",
+        formula: "Standard deviation of returns",
+        meaning: "Price movement variability", 
+        goodValue: "Depends on risk tolerance",
+        interpretation: "Lower = more stable returns"
+      },
+      {
+        name: "Calmar Ratio",
+        formula: "Annualized Return / Max Drawdown",
+        meaning: "Return per unit of downside risk",
+        goodValue: "> 0.5",
+        interpretation: "Higher = better risk-adjusted gains"
+      }
+    ]
+  };
+
+  return React.createElement("div", {style: {
+    minHeight: "100vh", 
+    background: `linear-gradient(135deg, ${C.bg} 0%, ${C.borderLight} 100%)`,
+    fontFamily: T.body
+  }},
+    // Header
+    React.createElement("header", {style: {
+      padding: "24px 48px",
+      borderBottom: `1px solid ${C.border}`,
+      background: C.white,
+      position: 'sticky',
+      top: 0,
+      zIndex: 10
+    }},
+      React.createElement("div", {style: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        maxWidth: 1200,
+        margin: '0 auto'
+      }},
+        React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 16}},
+          React.createElement("div", {style: {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: C.accentLight
+          }},
+            React.createElement("span", {style: {
+              fontFamily: T.display,
+              fontSize: 24,
+              fontWeight: 700,
+              color: C.navy
+            }}, "G")
+          ),
+          React.createElement("div", null,
+            React.createElement("h1", {style: {
+              fontFamily: T.display,
+              fontSize: 28,
+              fontWeight: 700,
+              color: C.navy,
+              marginBottom: 2
+            }}, "GrineOS"),
+            React.createElement("p", {style: {
+              fontSize: 14,
+              color: C.soft
+            }}, "Regime-Driven Allocation Intelligence")
+          )
+        ),
+        React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 16}},
+          React.createElement("nav", {style: {display: 'flex', gap: 24}},
+            Object.entries(sections).map(([key, label]) =>
+              React.createElement("button", {
+                key,
+                onClick: () => setActiveSection(key),
+                style: {
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 14,
+                  fontWeight: activeSection === key ? 600 : 400,
+                  color: activeSection === key ? C.navy : C.soft,
+                  cursor: 'pointer',
+                  padding: '8px 0',
+                  borderBottom: activeSection === key ? `2px solid ${C.navy}` : '2px solid transparent',
+                  transition: 'all 0.2s'
+                }
+              }, label)
+            )
+          ),
+          React.createElement("button", {
+            onClick: onEnterPlatform,
+            style: {
+              ...btnPrimary,
+              fontSize: 14,
+              padding: '10px 20px'
+            }
+          }, "Enter Platform →")
+        )
+      )
+    ),
+
+    // Content
+    React.createElement("main", {style: {
+      maxWidth: 1200,
+      margin: '0 auto',
+      padding: '48px 48px 96px'
+    }},
+      // Market Regimes Section
+      activeSection === 'regimes' && React.createElement("div", null,
+        React.createElement("div", {style: {textAlign: 'center', marginBottom: 48}},
+          React.createElement("h2", {style: {
+            fontFamily: T.display,
+            fontSize: 36,
+            fontWeight: 600,
+            color: C.navy,
+            marginBottom: 16
+          }}, regimeContent.title),
+          React.createElement("p", {style: {
+            fontSize: 18,
+            color: C.soft,
+            maxWidth: 700,
+            margin: '0 auto',
+            lineHeight: 1.6
+          }}, regimeContent.intro)
+        ),
+        
+        React.createElement("div", {style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
+          gap: 32,
+          marginBottom: 48
+        }},
+          regimeContent.regimes.map((regime, i) =>
+            React.createElement("div", {
+              key: i,
+              style: {
+                background: C.white,
+                borderRadius: 12,
+                padding: 32,
+                border: `2px solid ${regime.color}33`,
+                position: 'relative',
+                overflow: 'hidden'
+              }
+            },
+              React.createElement("div", {style: {
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: regime.color
+              }}),
+              React.createElement("h3", {style: {
+                fontSize: 20,
+                fontWeight: 700,
+                color: regime.color,
+                marginBottom: 12,
+                fontFamily: T.display
+              }}, regime.name),
+              React.createElement("p", {style: {
+                fontSize: 14,
+                color: C.navy,
+                marginBottom: 20,
+                lineHeight: 1.5
+              }}, regime.description),
+              React.createElement("div", {style: {marginBottom: 20}},
+                React.createElement("h4", {style: {
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: C.soft,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: 8
+                }}, "Key Characteristics"),
+                React.createElement("ul", {style: {
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0
+                }},
+                  regime.characteristics.map((char, j) =>
+                    React.createElement("li", {key: j, style: {
+                      fontSize: 13,
+                      color: C.navy,
+                      marginBottom: 4,
+                      paddingLeft: 16,
+                      position: 'relative'
+                    }},
+                      React.createElement("span", {style: {
+                        position: 'absolute',
+                        left: 0,
+                        color: regime.color
+                      }}, "•"),
+                      char
+                    )
+                  )
+                )
+              ),
+              React.createElement("div", {style: {
+                background: regime.bgColor,
+                padding: 12,
+                borderRadius: 6,
+                marginBottom: 16
+              }},
+                React.createElement("div", {style: {
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: regime.color,
+                  textTransform: 'uppercase',
+                  marginBottom: 4
+                }}, "Allocation Strategy"),
+                React.createElement("div", {style: {
+                  fontSize: 13,
+                  color: C.navy
+                }}, regime.allocation)
+              ),
+              React.createElement("div", {style: {
+                fontSize: 12,
+                color: C.faint,
+                fontStyle: 'italic'
+              }}, `Example: ${regime.example}`)
+            )
+          )
+        ),
+
+        React.createElement("div", {style: {
+          background: C.white,
+          borderRadius: 12,
+          padding: 32,
+          border: `1px solid ${C.border}`,
+          textAlign: 'center'
+        }},
+          React.createElement("h3", {style: {
+            fontSize: 24,
+            fontWeight: 600,
+            color: C.navy,
+            marginBottom: 16,
+            fontFamily: T.display
+          }}, "Why Regime-Aware Allocation?"),
+          React.createElement("div", {style: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: 24,
+            marginTop: 24
+          }},
+            [
+              {title: "Better Risk Management", desc: "Adjust risk exposure based on market conditions"},
+              {title: "Enhanced Returns", desc: "Overweight outperforming assets in each regime"},
+              {title: "Downside Protection", desc: "Reduce exposure during volatile periods"},
+              {title: "Systematic Approach", desc: "Remove emotion from allocation decisions"}
+            ].map((benefit, i) =>
+              React.createElement("div", {key: i, style: {textAlign: 'left'}},
+                React.createElement("h4", {style: {
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: C.navy,
+                  marginBottom: 8
+                }}, benefit.title),
+                React.createElement("p", {style: {
+                  fontSize: 14,
+                  color: C.soft,
+                  lineHeight: 1.5
+                }}, benefit.desc)
+              )
+            )
+          )
+        )
+      ),
+
+      // Portfolio Metrics Section
+      activeSection === 'metrics' && React.createElement("div", null,
+        React.createElement("div", {style: {textAlign: 'center', marginBottom: 48}},
+          React.createElement("h2", {style: {
+            fontFamily: T.display,
+            fontSize: 36,
+            fontWeight: 600,
+            color: C.navy,
+            marginBottom: 16
+          }}, metricsContent.title),
+          React.createElement("p", {style: {
+            fontSize: 18,
+            color: C.soft,
+            maxWidth: 700,
+            margin: '0 auto',
+            lineHeight: 1.6
+          }}, metricsContent.intro)
+        ),
+        
+        React.createElement("div", {style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: 24
+        }},
+          metricsContent.metrics.map((metric, i) =>
+            React.createElement("div", {
+              key: i,
+              style: {
+                background: C.white,
+                borderRadius: 12,
+                padding: 24,
+                border: `1px solid ${C.border}`
+              }
+            },
+              React.createElement("h3", {style: {
+                fontSize: 18,
+                fontWeight: 600,
+                color: C.navy,
+                marginBottom: 8,
+                fontFamily: T.display
+              }}, metric.name),
+              React.createElement("div", {style: {
+                background: C.borderLight,
+                padding: 12,
+                borderRadius: 6,
+                marginBottom: 16,
+                fontFamily: T.mono,
+                fontSize: 13
+              }}, metric.formula),
+              React.createElement("p", {style: {
+                fontSize: 14,
+                color: C.soft,
+                marginBottom: 12,
+                lineHeight: 1.5
+              }}, metric.meaning),
+              React.createElement("div", {style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 12
+              }},
+                React.createElement("span", {style: {color: C.faint}}, "Good Value:"),
+                React.createElement("span", {style: {
+                  fontWeight: 600,
+                  color: C.green
+                }}, metric.goodValue)
+              ),
+              React.createElement("div", {style: {
+                marginTop: 8,
+                fontSize: 12,
+                color: C.faint,
+                fontStyle: 'italic'
+              }}, metric.interpretation)
+            )
+          )
+        )
+      )
+    ),
+
+    // Footer
+    React.createElement("footer", {style: {
+      background: C.navy,
+      color: '#fff',
+      padding: '32px 48px',
+      textAlign: 'center'
+    }},
+      React.createElement("div", {style: {
+        maxWidth: 1200,
+        margin: '0 auto'
+      }},
+        React.createElement("p", {style: {
+          fontSize: 14,
+          opacity: 0.8,
+          marginBottom: 8
+        }}, "KG&Co Capital Advisory · Powered by Grine Technologies"),
+        React.createElement("p", {style: {
+          fontSize: 12,
+          opacity: 0.6
+        }}, "Regime intelligence for institutional allocation decisions")
+      )
+    )
+  );
+}
 
 /* ═══ AUTH ═══ */
 function AuthScreen({onAuth}){
@@ -1764,6 +2575,7 @@ function Dashboard({token,userEmail,onLogout}){
   else if(tab==="scenarios")content=React.createElement(ScenariosTab,{token,demoP});
   else if(tab==="portfolios")content=React.createElement(PortfoliosTab,{token});
   else if(tab==="analytics")content=React.createElement(EngineTab,{token,demoP,title:"Full Analytics",desc:"Comprehensive risk decomposition.",endpoint:"/api/v1/analytics/full",controls:[]});
+  else if(tab==="learn")content=React.createElement(LearnTab);
 
   return React.createElement("div",{style:{minHeight:"100vh",background:C.bg,fontFamily:T.body,color:C.navy,display:"flex",flexDirection:"column"}},
     // Main nav bar
@@ -1832,8 +2644,16 @@ function Dashboard({token,userEmail,onLogout}){
 
 function App(){
   const[token,setToken]=useState(null);const[email,setEmail]=useState("");
+  const[showEducation,setShowEducation]=useState(true);
+  
+  if(showEducation && !token) {
+    return React.createElement(RegimeProvider,null,
+      React.createElement(EducationalLanding,{onEnterPlatform:()=>setShowEducation(false)})
+    );
+  }
+  
   return React.createElement(RegimeProvider,null,
-    token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("")}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}})
+    token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("");setShowEducation(true)}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}})
   );
 }
 
