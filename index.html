@@ -2608,6 +2608,7 @@ function AuthScreen({onAuth}){
 function DemoTab({demoP}){
   const { isRegimeActive, setIsRegimeActive, regimeConfig } = useRegime();
   const [showCustomizer, setShowCustomizer] = useState(false);
+  const [useCustomPortfolio, setUseCustomPortfolio] = useState(false);
   const [customPortfolio, setCustomPortfolio] = useState({
     clientName: "Sarah Mitchell",
     totalValue: 2000000,
@@ -2626,15 +2627,35 @@ function DemoTab({demoP}){
     ]
   });
 
-  const currentPortfolio = demoP || customPortfolio;
+  // Use custom portfolio if customizer is being used, otherwise use backend data
+  const activePortfolio = useCustomPortfolio ? customPortfolio : (demoP || customPortfolio);
   
-  if(!currentPortfolio)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
+  // Apply customization changes
+  const applyCustomization = () => {
+    setUseCustomPortfolio(true);
+    setShowCustomizer(false);
+  };
+  
+  // Reset to backend data
+  const resetToBackend = () => {
+    setUseCustomPortfolio(false);
+    setShowCustomizer(false);
+  };
+  
+  if(!activePortfolio)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
+  
+  // Calculate holdings with proper values
+  const processedHoldings = activePortfolio.holdings?.map(h => ({
+    ...h,
+    value: (h.weight / 100) * activePortfolio.totalValue,
+    weight: h.weight || 0
+  })) || [];
   
   // Calculate regime-adjusted allocations
-  const baseAllocation = currentPortfolio.holdings?.reduce((acc, h) => {
+  const baseAllocation = processedHoldings.reduce((acc, h) => {
     acc[h.assetClass] = (acc[h.assetClass] || 0) + h.weight;
     return acc;
-  }, {}) || {};
+  }, {});
   
   const regimeAllocation = isRegimeActive ? {
     'US Equity': Math.min((baseAllocation['US Equity'] || 0) * regimeConfig.returnMultiplier, regimeConfig.equityMax * 100),
@@ -2643,7 +2664,7 @@ function DemoTab({demoP}){
   } : baseAllocation;
   
   const metrics=[
-    {label:"Total Value",value:`$${(currentPortfolio.totalValue / 1000000).toFixed(2)}M`,sub:`${currentPortfolio.holdings?.length || 0} Holdings`,color:C.blue},
+    {label:"Total Value",value:`$${(activePortfolio.totalValue / 1000000).toFixed(2)}M`,sub:`${processedHoldings.length || 0} Holdings`,color:C.blue},
     {label:"Expected Return",value:"8.4%",sub:"Annualized",color:C.green, regime: isRegimeActive ? {color: regimeConfig.color, impact: 1.2} : null},
     {label:"Volatility",value:"12.1%",sub:"Target: <15%",color:C.gold, regime: isRegimeActive ? {color: regimeConfig.color, impact: -0.8} : null},
     {label:"Sharpe Ratio",value:"0.69",sub:"Risk-Adjusted",color:C.navy, regime: isRegimeActive ? {color: regimeConfig.color, impact: 0.15} : null}
@@ -2654,7 +2675,8 @@ function DemoTab({demoP}){
     React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28,paddingBottom:16,borderBottom:`1px solid ${C.border}`}},
       React.createElement("div",null,
         React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Portfolio Overview"),
-        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}, `${currentPortfolio.clientName} Portfolio`)
+        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}, `${activePortfolio.clientName} Portfolio`),
+        useCustomPortfolio && React.createElement("div", {style: {fontSize: 11, color: regimeConfig.color, marginTop: 4}}, "✓ Using Custom Portfolio")
       ),
       React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 12}},
         React.createElement("button", {
@@ -2665,12 +2687,24 @@ function DemoTab({demoP}){
             fontSize: 12,
             display: 'flex',
             alignItems: 'center',
-            gap: 6
+            gap: 6,
+            borderColor: useCustomPortfolio ? regimeConfig.color : C.border,
+            color: useCustomPortfolio ? regimeConfig.color : C.soft
           }
         },
           React.createElement("span", {style: {fontSize: 14}}, "⚙️"),
           "Customize Portfolio"
         ),
+        useCustomPortfolio && React.createElement("button", {
+          onClick: resetToBackend,
+          style: {
+            ...btnOutline,
+            padding: "6px 12px",
+            fontSize: 11,
+            color: C.red,
+            borderColor: C.red + "44"
+          }
+        }, "Reset"),
         React.createElement(RegimeToggle,{enabled:isRegimeActive,onToggle:()=>setIsRegimeActive(!isRegimeActive)})
       )
     ),
@@ -2748,6 +2782,8 @@ function DemoTab({demoP}){
                   ]
                 });
               }
+              // Auto-apply template changes
+              setTimeout(() => setUseCustomPortfolio(true), 100);
             }
           },
             React.createElement("option", {value: ""}, "Select Template..."),
@@ -2758,11 +2794,12 @@ function DemoTab({demoP}){
         )
       ),
 
-      // Holdings Editor
+      // Holdings Editor with normalized weights
       React.createElement("div", {style: {
         background: C.borderLight,
         borderRadius: 6,
-        padding: 16
+        padding: 16,
+        marginBottom: 16
       }},
         React.createElement("h4", {style: {
           fontSize: 14,
@@ -2816,10 +2853,10 @@ function DemoTab({demoP}){
               style: {...inp, fontSize: 12, padding: '6px 8px'},
               type: 'number',
               step: 0.1,
-              value: holding.weight,
+              value: holding.weight || 0,
               onChange: (e) => {
                 const newHoldings = [...customPortfolio.holdings];
-                newHoldings[i].weight = parseFloat(e.target.value);
+                newHoldings[i].weight = parseFloat(e.target.value) || 0;
                 setCustomPortfolio({...customPortfolio, holdings: newHoldings});
               }
             }),
@@ -2865,6 +2902,18 @@ function DemoTab({demoP}){
           },
           style: {...btnOutline, padding: '6px 12px', fontSize: 12, marginTop: 8}
         }, "+ Add Holding")
+      ),
+      
+      // Apply/Cancel buttons
+      React.createElement("div", {style: {display: 'flex', gap: 12}},
+        React.createElement("button", {
+          onClick: applyCustomization,
+          style: {...btnPrimary, padding: '10px 20px', fontSize: 13}
+        }, "Apply Changes"),
+        React.createElement("button", {
+          onClick: () => setShowCustomizer(false),
+          style: {...btnOutline, padding: '10px 20px', fontSize: 13}
+        }, "Cancel")
       )
     ),
     
@@ -2892,7 +2941,7 @@ function DemoTab({demoP}){
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}},
       React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},isRegimeActive ? "Regime-Adjusted Allocation" : "Asset Class Breakdown"),
-        currentPortfolio.holdings&&React.createElement(DonutChart,{data:currentPortfolio.holdings.map(h=>({label:h.ticker,value:h.weight*currentPortfolio.totalValue/100}))}),
+        processedHoldings.length > 0 && React.createElement(DonutChart,{data:processedHoldings.map(h=>({label:h.ticker,value:h.value}))}),
         // Add news widget below chart
         React.createElement("div", {style: {marginTop: 24}},
           React.createElement(NewsWidget, {title: "Regime Impact News"})
@@ -2900,20 +2949,20 @@ function DemoTab({demoP}){
       ),
       React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Weight Distribution"),
-        currentPortfolio.holdings&&React.createElement(HBarChart,{data:currentPortfolio.holdings.map(h=>({label:h.ticker,value:h.weight,display:`${h.weight?.toFixed(1)}%`}))})
+        processedHoldings.length > 0 && React.createElement(HBarChart,{data:processedHoldings.map(h=>({label:h.ticker,value:h.weight,display:`${h.weight?.toFixed(1)}%`}))})
       )
     ),
     
-    currentPortfolio.holdings&&React.createElement("div",{style:{marginTop:32}},
+    processedHoldings.length > 0 && React.createElement("div",{style:{marginTop:32}},
       React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Holdings Detail"),
       React.createElement(DataTable,{
         headers:["Ticker","Name","Asset Class","Value","Weight"],
-        rows:currentPortfolio.holdings.map(h=>[
+        rows:processedHoldings.map(h=>[
           h.ticker,
           h.name||"—",
           h.assetClass||"—",
-          `$${((h.weight/100)*currentPortfolio.totalValue).toLocaleString()}`,
-          `${h.weight?.toFixed(1)}%`
+          `$${(h.value || 0).toLocaleString()}`,
+          `${(h.weight || 0).toFixed(1)}%`
         ])
       })
     )
