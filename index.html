@@ -2214,12 +2214,32 @@ function AuthScreen({onAuth}){
 /* ═══ TABS ═══ */
 function DemoTab({demoP}){
   const { isRegimeActive, setIsRegimeActive, regimeConfig } = useRegime();
+  const [showCustomizer, setShowCustomizer] = useState(false);
+  const [customPortfolio, setCustomPortfolio] = useState({
+    clientName: "Sarah Mitchell",
+    totalValue: 2000000,
+    holdings: [
+      {ticker: "AAPL", name: "Apple Inc.", weight: 14.2, assetClass: "US Equity"},
+      {ticker: "MSFT", name: "Microsoft Corp.", weight: 12.1, assetClass: "US Equity"}, 
+      {ticker: "GOOGL", name: "Alphabet Inc.", weight: 9.8, assetClass: "US Equity"},
+      {ticker: "AMZN", name: "Amazon.com Inc.", weight: 8.7, assetClass: "US Equity"},
+      {ticker: "BRK-B", name: "Berkshire Hathaway", weight: 7.2, assetClass: "US Equity"},
+      {ticker: "TSLA", name: "Tesla Inc.", weight: 6.5, assetClass: "US Equity"},
+      {ticker: "VXUS", name: "Vanguard Total Intl Stock", weight: 9.8, assetClass: "Intl Equity"},
+      {ticker: "VNO", name: "Vanguard Real Estate ETF", weight: 5.9, assetClass: "Real Estate"},
+      {ticker: "GLD", name: "SPDR Gold Trust", weight: 8.0, assetClass: "Commodities"},
+      {ticker: "TIP", name: "iShares TIPS Bond ETF", weight: 8.2, assetClass: "Fixed Income"},
+      {ticker: "CASH", name: "Cash & Money Market", weight: 9.6, assetClass: "Cash"}
+    ]
+  });
+
+  const currentPortfolio = demoP || customPortfolio;
   
-  if(!demoP)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
+  if(!currentPortfolio)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
   
-  // Calculate regime-adjusted allocations (mock data for demo)
-  const baseAllocation = demoP.holdings?.reduce((acc, h) => {
-    acc[h.asset_class] = (acc[h.asset_class] || 0) + h.weight;
+  // Calculate regime-adjusted allocations
+  const baseAllocation = currentPortfolio.holdings?.reduce((acc, h) => {
+    acc[h.assetClass] = (acc[h.assetClass] || 0) + h.weight;
     return acc;
   }, {}) || {};
   
@@ -2230,20 +2250,229 @@ function DemoTab({demoP}){
   } : baseAllocation;
   
   const metrics=[
-    {label:"Total Value",value:"$2.00M",sub:"10 Holdings",color:C.blue},
+    {label:"Total Value",value:`$${(currentPortfolio.totalValue / 1000000).toFixed(2)}M`,sub:`${currentPortfolio.holdings?.length || 0} Holdings`,color:C.blue},
     {label:"Expected Return",value:"8.4%",sub:"Annualized",color:C.green, regime: isRegimeActive ? {color: regimeConfig.color, impact: 1.2} : null},
     {label:"Volatility",value:"12.1%",sub:"Target: <15%",color:C.gold, regime: isRegimeActive ? {color: regimeConfig.color, impact: -0.8} : null},
     {label:"Sharpe Ratio",value:"0.69",sub:"Risk-Adjusted",color:C.navy, regime: isRegimeActive ? {color: regimeConfig.color, impact: 0.15} : null}
   ];
   
   return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1200,animation:"fadeUp .4s ease"}},
-    // Header with regime toggle
+    // Header with regime toggle and customizer
     React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28,paddingBottom:16,borderBottom:`1px solid ${C.border}`}},
       React.createElement("div",null,
         React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Portfolio Overview"),
-        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},"Sarah Mitchell Portfolio")
+        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}, `${currentPortfolio.clientName} Portfolio`)
       ),
-      React.createElement(RegimeToggle,{enabled:isRegimeActive,onToggle:()=>setIsRegimeActive(!isRegimeActive)})
+      React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 12}},
+        React.createElement("button", {
+          onClick: () => setShowCustomizer(!showCustomizer),
+          style: {
+            ...btnOutline,
+            padding: "8px 16px",
+            fontSize: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }
+        },
+          React.createElement("span", {style: {fontSize: 14}}, "⚙️"),
+          "Customize Portfolio"
+        ),
+        React.createElement(RegimeToggle,{enabled:isRegimeActive,onToggle:()=>setIsRegimeActive(!isRegimeActive)})
+      )
+    ),
+    
+    // Portfolio Customizer Panel
+    showCustomizer && React.createElement("div", {style: {
+      background: C.white,
+      border: `1px solid ${C.border}`,
+      borderRadius: 8,
+      padding: 24,
+      marginBottom: 24
+    }},
+      React.createElement("h3", {style: {
+        fontSize: 16,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 20,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Portfolio Customization"),
+      
+      // Client & Portfolio Settings
+      React.createElement("div", {style: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: 16,
+        marginBottom: 24
+      }},
+        React.createElement("div", null,
+          React.createElement("label", {style: lbl}, "Client Name"),
+          React.createElement("input", {
+            style: inp,
+            value: customPortfolio.clientName,
+            onChange: (e) => setCustomPortfolio({...customPortfolio, clientName: e.target.value})
+          })
+        ),
+        React.createElement("div", null,
+          React.createElement("label", {style: lbl}, "Portfolio Value"),
+          React.createElement("select", {
+            style: {...inp, fontSize: 13},
+            value: customPortfolio.totalValue,
+            onChange: (e) => setCustomPortfolio({...customPortfolio, totalValue: parseInt(e.target.value)})
+          },
+            [500000, 1000000, 2000000, 5000000, 10000000, 25000000, 50000000, 100000000].map(val =>
+              React.createElement("option", {key: val, value: val}, 
+                val >= 1000000 ? `$${val/1000000}M` : `$${val/1000}K`
+              )
+            )
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("label", {style: lbl}, "Portfolio Template"),
+          React.createElement("select", {
+            style: {...inp, fontSize: 13},
+            onChange: (e) => {
+              if(e.target.value === 'conservative') {
+                setCustomPortfolio({
+                  ...customPortfolio,
+                  holdings: [
+                    {ticker: "VTI", name: "Total Stock Market ETF", weight: 30, assetClass: "US Equity"},
+                    {ticker: "BND", name: "Total Bond Market ETF", weight: 40, assetClass: "Fixed Income"},
+                    {ticker: "VXUS", name: "Total Intl Stock ETF", weight: 15, assetClass: "Intl Equity"},
+                    {ticker: "CASH", name: "Cash & Money Market", weight: 15, assetClass: "Cash"}
+                  ]
+                });
+              } else if(e.target.value === 'aggressive') {
+                setCustomPortfolio({
+                  ...customPortfolio,
+                  holdings: [
+                    {ticker: "QQQ", name: "Nasdaq-100 ETF", weight: 25, assetClass: "US Equity"},
+                    {ticker: "VTI", name: "Total Stock Market ETF", weight: 35, assetClass: "US Equity"},
+                    {ticker: "VXUS", name: "Total Intl Stock ETF", weight: 20, assetClass: "Intl Equity"},
+                    {ticker: "VNQ", name: "Real Estate ETF", weight: 10, assetClass: "Real Estate"},
+                    {ticker: "BND", name: "Total Bond Market ETF", weight: 10, assetClass: "Fixed Income"}
+                  ]
+                });
+              }
+            }
+          },
+            React.createElement("option", {value: ""}, "Select Template..."),
+            React.createElement("option", {value: "conservative"}, "Conservative (30/40/15/15)"),
+            React.createElement("option", {value: "balanced"}, "Current Portfolio"),
+            React.createElement("option", {value: "aggressive"}, "Aggressive (80/20)")
+          )
+        )
+      ),
+
+      // Holdings Editor
+      React.createElement("div", {style: {
+        background: C.borderLight,
+        borderRadius: 6,
+        padding: 16
+      }},
+        React.createElement("h4", {style: {
+          fontSize: 14,
+          fontWeight: 600,
+          color: C.navy,
+          marginBottom: 12
+        }}, "Holdings Editor"),
+        React.createElement("div", {style: {
+          display: 'grid',
+          gridTemplateColumns: '120px 200px 80px 120px 60px',
+          gap: 8,
+          marginBottom: 12,
+          fontSize: 11,
+          fontWeight: 600,
+          color: C.soft,
+          textTransform: 'uppercase'
+        }},
+          React.createElement("div", null, "Ticker"),
+          React.createElement("div", null, "Name"), 
+          React.createElement("div", null, "Weight %"),
+          React.createElement("div", null, "Asset Class"),
+          React.createElement("div", null, "Action")
+        ),
+        customPortfolio.holdings.map((holding, i) =>
+          React.createElement("div", {key: i, style: {
+            display: 'grid',
+            gridTemplateColumns: '120px 200px 80px 120px 60px',
+            gap: 8,
+            marginBottom: 8,
+            alignItems: 'center'
+          }},
+            React.createElement("input", {
+              style: {...inp, fontSize: 12, padding: '6px 8px'},
+              value: holding.ticker,
+              onChange: (e) => {
+                const newHoldings = [...customPortfolio.holdings];
+                newHoldings[i].ticker = e.target.value;
+                setCustomPortfolio({...customPortfolio, holdings: newHoldings});
+              }
+            }),
+            React.createElement("input", {
+              style: {...inp, fontSize: 12, padding: '6px 8px'},
+              value: holding.name,
+              onChange: (e) => {
+                const newHoldings = [...customPortfolio.holdings];
+                newHoldings[i].name = e.target.value;
+                setCustomPortfolio({...customPortfolio, holdings: newHoldings});
+              }
+            }),
+            React.createElement("input", {
+              style: {...inp, fontSize: 12, padding: '6px 8px'},
+              type: 'number',
+              step: 0.1,
+              value: holding.weight,
+              onChange: (e) => {
+                const newHoldings = [...customPortfolio.holdings];
+                newHoldings[i].weight = parseFloat(e.target.value);
+                setCustomPortfolio({...customPortfolio, holdings: newHoldings});
+              }
+            }),
+            React.createElement("select", {
+              style: {...inp, fontSize: 11, padding: '6px 8px'},
+              value: holding.assetClass,
+              onChange: (e) => {
+                const newHoldings = [...customPortfolio.holdings];
+                newHoldings[i].assetClass = e.target.value;
+                setCustomPortfolio({...customPortfolio, holdings: newHoldings});
+              }
+            },
+              ["US Equity", "Intl Equity", "Fixed Income", "Real Estate", "Commodities", "Cash"].map(ac =>
+                React.createElement("option", {key: ac, value: ac}, ac)
+              )
+            ),
+            React.createElement("button", {
+              onClick: () => {
+                const newHoldings = customPortfolio.holdings.filter((_, idx) => idx !== i);
+                setCustomPortfolio({...customPortfolio, holdings: newHoldings});
+              },
+              style: {
+                background: 'none',
+                border: 'none',
+                color: C.red,
+                cursor: 'pointer',
+                fontSize: 16
+              }
+            }, "×")
+          )
+        ),
+        React.createElement("button", {
+          onClick: () => {
+            setCustomPortfolio({
+              ...customPortfolio,
+              holdings: [...customPortfolio.holdings, {
+                ticker: "NEW",
+                name: "New Holding",
+                weight: 5,
+                assetClass: "US Equity"
+              }]
+            });
+          },
+          style: {...btnOutline, padding: '6px 12px', fontSize: 12, marginTop: 8}
+        }, "+ Add Holding")
+      )
     ),
     
     // Regime impact banner
@@ -2270,19 +2499,25 @@ function DemoTab({demoP}){
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}},
       React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},isRegimeActive ? "Regime-Adjusted Allocation" : "Asset Class Breakdown"),
-        demoP.holdings&&React.createElement(DonutChart,{data:demoP.holdings.map(h=>({label:h.ticker,value:h.value||h.weight*20000}))})
+        currentPortfolio.holdings&&React.createElement(DonutChart,{data:currentPortfolio.holdings.map(h=>({label:h.ticker,value:h.weight*currentPortfolio.totalValue/100}))})
       ),
       React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Weight Distribution"),
-        demoP.holdings&&React.createElement(HBarChart,{data:demoP.holdings.map(h=>({label:h.ticker,value:h.weight,display:`${h.weight?.toFixed(1)}%`}))})
+        currentPortfolio.holdings&&React.createElement(HBarChart,{data:currentPortfolio.holdings.map(h=>({label:h.ticker,value:h.weight,display:`${h.weight?.toFixed(1)}%`}))})
       )
     ),
     
-    demoP.holdings&&React.createElement("div",{style:{marginTop:32}},
+    currentPortfolio.holdings&&React.createElement("div",{style:{marginTop:32}},
       React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Holdings Detail"),
       React.createElement(DataTable,{
-        headers:["Ticker","Name","Asset Class","Qty","Value","Weight"],
-        rows:demoP.holdings.map(h=>[h.ticker,h.name||h.company_name||"—",h.asset_class||"—",(h.quantity||0).toLocaleString(),h.value?`$${h.value.toLocaleString()}`:"—",`${(h.weight||0).toFixed(1)}%`])
+        headers:["Ticker","Name","Asset Class","Value","Weight"],
+        rows:currentPortfolio.holdings.map(h=>[
+          h.ticker,
+          h.name||"—",
+          h.assetClass||"—",
+          `$${((h.weight/100)*currentPortfolio.totalValue).toLocaleString()}`,
+          `${h.weight?.toFixed(1)}%`
+        ])
       })
     )
   );
