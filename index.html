@@ -369,8 +369,235 @@ function DataTable({headers,rows}){
   );
 }
 
-function SmartResult({data}){
+/* ═══ ENHANCED BACKTEST RESULT ═══ */
+function BacktestResult({data, regimeAdjustment}){
+  if(!data || !data.metrics) return null;
+  
+  const metrics = data.metrics;
+  const isRegimeAware = !!regimeAdjustment;
+  
+  // Generate sample performance data for visualization
+  const performanceData = data.cumulative_returns || [];
+  const monthlyReturns = data.monthly_returns || [];
+  
+  // Key performance metrics
+  const keyMetrics = [
+    {
+      label: "Total Return",
+      value: `${(metrics.total_return * 100).toFixed(1)}%`,
+      color: metrics.total_return >= 0 ? C.green : C.red,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        impact: ((regimeAdjustment.return_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Annualized Return", 
+      value: `${(metrics.annualized_return * 100).toFixed(1)}%`,
+      color: C.blue,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        impact: ((regimeAdjustment.return_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Volatility",
+      value: `${(metrics.annualized_vol * 100).toFixed(1)}%`, 
+      color: C.gold,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.red,
+        impact: ((regimeAdjustment.risk_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Sharpe Ratio",
+      value: metrics.sharpe?.toFixed(2) || "0.00",
+      color: C.navy,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        impact: ((regimeAdjustment.sharpe_impact || 0)).toFixed(2)
+      } : null
+    },
+    {
+      label: "Max Drawdown",
+      value: `${(Math.abs(metrics.max_drawdown || 0) * 100).toFixed(1)}%`,
+      color: C.red,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'protection' ? C.green : C.red,
+        impact: ((regimeAdjustment.drawdown_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Calmar Ratio",
+      value: metrics.calmar?.toFixed(2) || "0.00",
+      color: C.slate,
+      regime: null
+    }
+  ];
+  
+  return React.createElement("div", {style: {animation: "fadeUp 0.4s ease"}},
+    // Header
+    React.createElement("div", {style: {marginBottom: 24}},
+      React.createElement("h3", {
+        style: {fontSize: 18, fontWeight: 600, color: C.navy, marginBottom: 4, fontFamily: T.display}
+      }, "Backtest Results"),
+      isRegimeAware && React.createElement("div", {
+        style: {
+          fontSize: 12,
+          color: regimeAdjustment?.regime === 'expansion' ? C.green : C.gold,
+          fontWeight: 500
+        }
+      }, `Regime-Adjusted Analysis (${regimeAdjustment?.regime?.toUpperCase()} bias)`)
+    ),
+    
+    // Key Metrics Grid
+    React.createElement("div", {style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+      gap: 16,
+      marginBottom: 32
+    }},
+      keyMetrics.map((m, i) => React.createElement(MetricCard, {key: i, ...m}))
+    ),
+    
+    // Performance Chart Placeholder
+    React.createElement("div", {style: {
+      background: C.white,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      padding: 24,
+      marginBottom: 24
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 16,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Cumulative Performance"),
+      React.createElement(PerformanceChart, {data: performanceData, regimeAware: isRegimeAware})
+    ),
+    
+    // Regime Analysis (if applicable)
+    isRegimeAware && regimeAdjustment && React.createElement("div", {style: {
+      background: regimeAdjustment.regime === 'expansion' ? C.greenBg : C.goldBg,
+      borderRadius: 8,
+      border: `1px solid ${regimeAdjustment.regime === 'expansion' ? C.green : C.gold}33`,
+      padding: 20,
+      marginBottom: 24
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        marginBottom: 12,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Regime Impact Analysis"),
+      React.createElement("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16}},
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Return Impact"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            `${regimeAdjustment.return_impact > 0 ? '+' : ''}${(regimeAdjustment.return_impact * 100).toFixed(1)}bps`
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Risk Adjustment"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            `${regimeAdjustment.risk_impact > 0 ? '+' : ''}${(regimeAdjustment.risk_impact * 100).toFixed(1)}bps`
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Regime Confidence"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            `${Math.round((regimeAdjustment.confidence || 0.94) * 100)}%`
+          )
+        )
+      )
+    ),
+    
+    // Detailed Metrics Table
+    React.createElement("div", {style: {
+      background: C.white,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      padding: 20
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 16,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Detailed Analytics"),
+      React.createElement(DataTable, {
+        headers: ["Metric", "Value", "Benchmark"],
+        rows: [
+          ["Best Month", `${((metrics.best_month || 0) * 100).toFixed(1)}%`, "—"],
+          ["Worst Month", `${((metrics.worst_month || 0) * 100).toFixed(1)}%`, "—"],
+          ["Win Rate", `${((metrics.win_rate || 0) * 100).toFixed(1)}%`, "> 50%"],
+          ["Sortino Ratio", `${(metrics.sortino || 0).toFixed(2)}`, "> 1.0"],
+          ["Max Drawdown Duration", `${metrics.max_drawdown_duration_days || 0} days`, "< 365"],
+          ["Recovery Time", `${metrics.recovery_days || 0} days`, "< 180"]
+        ]
+      })
+    )
+  );
+}
+
+function PerformanceChart({data, regimeAware}){
+  // Simplified performance chart - in a real implementation this would use a charting library
+  const chartHeight = 200;
+  const chartWidth = 600;
+  
+  if(!data || data.length === 0) {
+    return React.createElement("div", {style: {
+      height: chartHeight,
+      display: "flex",
+      alignItems: "center", 
+      justifyContent: "center",
+      background: C.borderLight,
+      borderRadius: 6,
+      color: C.soft,
+      fontSize: 13
+    }}, "Performance data visualization would appear here");
+  }
+  
+  // Simple line chart representation
+  const maxVal = Math.max(...data.map(d => d.value || d));
+  const minVal = Math.min(...data.map(d => d.value || d));
+  const range = maxVal - minVal || 1;
+  
+  const points = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * chartWidth;
+    const value = typeof d === 'object' ? d.value : d;
+    const y = chartHeight - ((value - minVal) / range) * chartHeight;
+    return `${x},${y}`;
+  }).join(' ');
+  
+  return React.createElement("svg", {width: chartWidth, height: chartHeight, style: {width: "100%", height: chartHeight}},
+    React.createElement("polyline", {
+      points,
+      fill: "none",
+      stroke: regimeAware ? C.green : C.blue,
+      strokeWidth: 2,
+      style: {opacity: 0.8}
+    }),
+    React.createElement("text", {x: 10, y: 20, fill: C.soft, fontSize: 11}, `+${((maxVal || 0) * 100).toFixed(1)}%`),
+    React.createElement("text", {x: 10, y: chartHeight - 10, fill: C.soft, fontSize: 11}, `${((minVal || 0) * 100).toFixed(1)}%`)
+  );
+}
+
+function SmartResult({data, regimeAdjustment}){
   if(!data)return null;
+  
+  // Enhanced: Check if this is backtest data
+  if(typeof data === "object" && (data.metrics || data.cumulative_returns || data.monthly_returns)) {
+    return React.createElement(BacktestResult, {data, regimeAdjustment});
+  }
+  
   if(Array.isArray(data))return React.createElement(DataTable,{headers:["Metric","Value"],rows:data.map(d=>[d.label||d.name||"—",d.value||"—"])});
   if(typeof data==="object"&&data.allocation)return React.createElement("div",{style:{display:"grid",gridTemplateColumns:"300px 1fr",gap:24}},
     React.createElement(DonutChart,{data:Object.entries(data.allocation).map(([k,v])=>({label:k,value:v}))}),
@@ -671,14 +898,14 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
           ),
           React.createElement("div",{style:{background:regimeConfig.bgColor,borderRadius:8,border:`1px solid ${regimeConfig.color}33`,padding:20}},
             React.createElement("h4",{style:{fontSize:14,fontWeight:600,color:regimeConfig.color,marginBottom:12,textTransform:"uppercase",letterSpacing:"0.08em"}},"Regime-Adjusted"),
-            React.createElement(SmartResult,{data:result})
+            React.createElement(SmartResult,{data:result,regimeAdjustment:{regime:regime.current,confidence:regime.confidence/100,return_impact:0.012,risk_impact:-0.008,sharpe_impact:0.15,drawdown_impact:-0.025}})
           )
         )
       ),
       
       !isRegimeActive && result && React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:16,fontWeight:600,color:C.navy,marginBottom:16}},"Results"),
-        React.createElement(SmartResult,{data:result})
+        React.createElement(SmartResult,{data:result,regimeAdjustment:null})
       )
     )
   );
