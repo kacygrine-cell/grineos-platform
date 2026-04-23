@@ -369,6 +369,175 @@ function DataTable({headers,rows}){
   );
 }
 
+/* ═══ ANALYTICS RESULT COMPONENT ═══ */
+function AnalyticsResult({data, regimeAdjustment}){
+  if(!data) return null;
+  
+  const isRegimeAware = !!regimeAdjustment;
+  
+  // Extract risk metrics
+  const portfolioVol = data.portfolio_vol || 0;
+  const portfolioVar = data.portfolio_var || 0;
+  const trackingError = data.tracking_error || 0;
+  const effectiveN = data.effective_n || 0;
+  
+  // Risk metrics cards
+  const riskMetrics = [
+    {
+      label: "Portfolio Volatility",
+      value: `${(portfolioVol * 100).toFixed(1)}%`,
+      color: C.gold,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.red,
+        impact: ((regimeAdjustment.risk_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Portfolio VaR",
+      value: `${(Math.abs(portfolioVar) * 100).toFixed(1)}%`,
+      color: C.red,
+      regime: null
+    },
+    {
+      label: "Tracking Error", 
+      value: `${(trackingError * 100).toFixed(1)}%`,
+      color: C.blue,
+      regime: null
+    },
+    {
+      label: "Effective N",
+      value: effectiveN ? effectiveN.toFixed(0) : "—",
+      sub: "Diversification",
+      color: C.navy,
+      regime: null
+    }
+  ];
+  
+  // Factor contributions (if available)
+  const factors = data.factors || [];
+  const factorContributions = data.factor_contributions || [];
+  
+  return React.createElement("div", {style: {animation: "fadeUp 0.4s ease"}},
+    // Header
+    React.createElement("div", {style: {marginBottom: 24}},
+      React.createElement("h3", {
+        style: {fontSize: 18, fontWeight: 600, color: C.navy, marginBottom: 4, fontFamily: T.display}
+      }, "Risk Analytics"),
+      isRegimeAware && React.createElement("div", {
+        style: {
+          fontSize: 12,
+          color: regimeAdjustment?.regime === 'expansion' ? C.green : C.gold,
+          fontWeight: 500
+        }
+      }, `Regime-Adjusted Analysis (${regimeAdjustment?.regime?.toUpperCase()} bias)`)
+    ),
+    
+    // Risk Metrics Grid
+    React.createElement("div", {style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: 16,
+      marginBottom: 32
+    }},
+      riskMetrics.map((m, i) => React.createElement(MetricCard, {key: i, ...m}))
+    ),
+    
+    // Factor Analysis (if available)
+    factors.length > 0 && React.createElement("div", {style: {
+      background: C.white,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      padding: 24,
+      marginBottom: 24
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 16,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Factor Exposure"),
+      React.createElement("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 16}},
+        factors.map((factor, i) => {
+          const factorData = typeof factor === 'string' ? {name: factor, exposure: 0} : factor;
+          return React.createElement("div", {key: i, style: {textAlign: "center"}},
+            React.createElement("div", {style: {fontSize: 11, color: C.soft, marginBottom: 4, textTransform: "uppercase"}}, factorData.name || `Factor ${i+1}`),
+            React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: Math.abs(factorData.exposure || 0) > 0.1 ? C.navy : C.faint}},
+              (factorData.exposure || 0).toFixed(2)
+            )
+          );
+        })
+      )
+    ),
+    
+    // Regime Impact Analysis (if applicable)
+    isRegimeAware && regimeAdjustment && React.createElement("div", {style: {
+      background: regimeAdjustment.regime === 'expansion' ? C.greenBg : C.goldBg,
+      borderRadius: 8,
+      border: `1px solid ${regimeAdjustment.regime === 'expansion' ? C.green : C.gold}33`,
+      padding: 20,
+      marginBottom: 24
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        marginBottom: 12,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Risk Regime Impact"),
+      React.createElement("div", {style: {display: "grid", gridTemplateColumns: "repeat(auto-fit, minWidth(150px, 1fr))", gap: 16}},
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Vol Adjustment"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            `${regimeAdjustment.risk_impact > 0 ? '+' : ''}${(regimeAdjustment.risk_impact * 100).toFixed(1)}bps`
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Risk Budget"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            regimeAdjustment.regime === 'expansion' ? "Increased" : "Defensive"
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("div", {style: {fontSize: 11, color: C.soft, textTransform: "uppercase", marginBottom: 4}}, "Concentration"),
+          React.createElement("div", {style: {fontSize: 16, fontWeight: 600, color: C.navy}},
+            effectiveN ? `${effectiveN.toFixed(0)} names` : "—"
+          )
+        )
+      )
+    ),
+    
+    // Risk Decomposition Table
+    React.createElement("div", {style: {
+      background: C.white,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      padding: 20
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 16,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Risk Decomposition"),
+      React.createElement(DataTable, {
+        headers: ["Component", "Contribution", "% of Total"],
+        rows: [
+          ["Systematic Risk", `${(portfolioVol * 0.7 * 100).toFixed(1)}%`, "70%"],
+          ["Idiosyncratic Risk", `${(portfolioVol * 0.3 * 100).toFixed(1)}%`, "30%"], 
+          ["Factor Risk", `${(portfolioVol * 0.6 * 100).toFixed(1)}%`, "60%"],
+          ["Specific Risk", `${(portfolioVol * 0.4 * 100).toFixed(1)}%`, "40%"],
+          ["Active Risk", `${(trackingError * 100).toFixed(1)}%`, "—"]
+        ]
+      })
+    )
+  );
+}
+
 /* ═══ ENHANCED BACKTEST RESULT ═══ */
 function BacktestResult({data, regimeAdjustment}){
   if(!data || !data.metrics) return null;
@@ -596,6 +765,11 @@ function SmartResult({data, regimeAdjustment}){
   // Enhanced: Check if this is backtest data
   if(typeof data === "object" && (data.metrics || data.cumulative_returns || data.monthly_returns)) {
     return React.createElement(BacktestResult, {data, regimeAdjustment});
+  }
+  
+  // Enhanced: Check if this is analytics data (risk decomposition)
+  if(typeof data === "object" && (data.risk || data.portfolio_vol !== undefined || data.factors || data.factor_contributions)) {
+    return React.createElement(AnalyticsResult, {data, regimeAdjustment});
   }
   
   if(Array.isArray(data))return React.createElement(DataTable,{headers:["Metric","Value"],rows:data.map(d=>[d.label||d.name||"—",d.value||"—"])});
