@@ -3242,11 +3242,21 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
             } : null
           };
         } else if (endpoint.includes("analytics")) {
+          const isExpansion = regime.current === 'expansion';
+          
           base = {
-            portfolio_vol: 12.1,
-            portfolio_var: 2.8,
-            tracking_error: 1.4,
+            portfolio_vol: 0.121, // 12.1% as decimal
+            portfolio_var: 0.028, // 2.8% as decimal  
+            tracking_error: 0.014, // 1.4% as decimal
             effective_n: 4.2,
+            factors: [
+              {name: "Factor 1", exposure: 0.15},
+              {name: "Factor 2", exposure: 0.08},
+              {name: "Factor 3", exposure: -0.03},
+              {name: "Factor 4", exposure: 0.12},
+              {name: "Factor 5", exposure: 0.06},
+              {name: "Factor 6", exposure: -0.02}
+            ],
             factor_contributions: {
               systematic: 0.70,
               idiosyncratic: 0.30,
@@ -3254,20 +3264,41 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
               specific_risk: 0.40
             },
             risk: {
-              total: 12.1,
-              systematic: 8.5,
-              specific: 8.7
+              total: 0.121,
+              systematic: 0.085,
+              specific: 0.087
             }
           };
           
           regimeAware = {
-            ...base,
-            portfolio_vol: isRegimeActive ? (regime.current === 'expansion' ? 11.3 : 10.9) : 12.1,
-            regime_impact: isRegimeActive ? {
-              vol_adjustment: regime.current === 'expansion' ? -0.8 : -1.2,
-              risk_budget: "Increased",
-              concentration: regime.current === 'expansion' ? "Moderate" : "Conservative"
-            } : null
+            portfolio_vol: isExpansion ? 0.113 : 0.109, // Lower vol in expansion
+            portfolio_var: isExpansion ? 0.025 : 0.031,
+            tracking_error: 0.014,
+            effective_n: 4.2,
+            factors: [
+              {name: "Factor 1", exposure: isExpansion ? 0.18 : 0.12},
+              {name: "Factor 2", exposure: isExpansion ? 0.10 : 0.06}, 
+              {name: "Factor 3", exposure: isExpansion ? -0.01 : -0.05},
+              {name: "Factor 4", exposure: isExpansion ? 0.15 : 0.09},
+              {name: "Factor 5", exposure: isExpansion ? 0.08 : 0.04},
+              {name: "Factor 6", exposure: isExpansion ? 0.01 : -0.04}
+            ],
+            factor_contributions: {
+              systematic: isExpansion ? 0.75 : 0.65,
+              idiosyncratic: isExpansion ? 0.25 : 0.35,
+              factor_risk: isExpansion ? 0.65 : 0.55,
+              specific_risk: isExpansion ? 0.35 : 0.45
+            },
+            regime_impact: {
+              vol_adjustment: isExpansion ? -0.008 : -0.012,
+              risk_budget: isExpansion ? "Increased" : "Conservative",
+              concentration: isExpansion ? "Moderate" : "Low"
+            },
+            risk: {
+              total: isExpansion ? 0.113 : 0.109,
+              systematic: isExpansion ? 0.078 : 0.071,
+              specific: isExpansion ? 0.082 : 0.079
+            }
           };
         }
       }
