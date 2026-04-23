@@ -40,6 +40,10 @@ const CHART_COLORS=["#1a2332","#2563eb","#16a34a","#b45309","#7c3aed","#dc2626",
 const RegimeContext = createContext();
 const useRegime = () => useContext(RegimeContext);
 
+// Portfolio Context for sharing custom portfolio data across tabs
+const PortfolioContext = createContext();
+const usePortfolio = () => useContext(PortfolioContext);
+
 const REGIME_PARAMETERS = {
   expansion: {
     label: "EXPANSION",
@@ -112,6 +116,52 @@ function RegimeProvider({children}) {
       {children}
     </RegimeContext.Provider>
   );
+}
+
+function PortfolioProvider({children}) {
+  const [useCustomPortfolio, setUseCustomPortfolio] = useState(false);
+  const [customPortfolio, setCustomPortfolio] = useState({
+    clientName: "Sarah Mitchell",
+    totalValue: 2000000,
+    holdings: [
+      {ticker: "AAPL", name: "Apple Inc.", weight: 14.2, assetClass: "US Equity"},
+      {ticker: "MSFT", name: "Microsoft Corp.", weight: 12.1, assetClass: "US Equity"}, 
+      {ticker: "GOOGL", name: "Alphabet Inc.", weight: 9.8, assetClass: "US Equity"},
+      {ticker: "AMZN", name: "Amazon.com Inc.", weight: 8.7, assetClass: "US Equity"},
+      {ticker: "BRK-B", name: "Berkshire Hathaway", weight: 7.2, assetClass: "US Equity"},
+      {ticker: "TSLA", name: "Tesla Inc.", weight: 6.5, assetClass: "US Equity"},
+      {ticker: "VXUS", name: "Vanguard Total Intl Stock", weight: 9.8, assetClass: "Intl Equity"},
+      {ticker: "VNO", name: "Vanguard Real Estate ETF", weight: 5.9, assetClass: "Real Estate"},
+      {ticker: "GLD", name: "SPDR Gold Trust", weight: 8.0, assetClass: "Commodities"},
+      {ticker: "TIP", name: "iShares TIPS Bond ETF", weight: 8.2, assetClass: "Fixed Income"},
+      {ticker: "CASH", name: "Cash & Money Market", weight: 9.6, assetClass: "Cash"}
+    ]
+  });
+
+  const getActivePortfolio = (backendPortfolio) => {
+    if (useCustomPortfolio) {
+      const processedHoldings = customPortfolio.holdings.map(h => ({
+        ...h,
+        value: (h.weight / 100) * customPortfolio.totalValue,
+        weight: h.weight || 0
+      }));
+      return {
+        ...customPortfolio,
+        holdings: processedHoldings
+      };
+    }
+    return backendPortfolio || customPortfolio;
+  };
+
+  return React.createElement(PortfolioContext.Provider, {
+    value: {
+      useCustomPortfolio,
+      setUseCustomPortfolio,
+      customPortfolio,
+      setCustomPortfolio,
+      getActivePortfolio
+    }
+  }, children);
 }
 
 function RegimeTopBar() {
@@ -2607,28 +2657,11 @@ function AuthScreen({onAuth}){
 /* ═══ TABS ═══ */
 function DemoTab({demoP}){
   const { isRegimeActive, setIsRegimeActive, regimeConfig } = useRegime();
+  const { useCustomPortfolio, setUseCustomPortfolio, customPortfolio, setCustomPortfolio, getActivePortfolio } = usePortfolio();
   const [showCustomizer, setShowCustomizer] = useState(false);
-  const [useCustomPortfolio, setUseCustomPortfolio] = useState(false);
-  const [customPortfolio, setCustomPortfolio] = useState({
-    clientName: "Sarah Mitchell",
-    totalValue: 2000000,
-    holdings: [
-      {ticker: "AAPL", name: "Apple Inc.", weight: 14.2, assetClass: "US Equity"},
-      {ticker: "MSFT", name: "Microsoft Corp.", weight: 12.1, assetClass: "US Equity"}, 
-      {ticker: "GOOGL", name: "Alphabet Inc.", weight: 9.8, assetClass: "US Equity"},
-      {ticker: "AMZN", name: "Amazon.com Inc.", weight: 8.7, assetClass: "US Equity"},
-      {ticker: "BRK-B", name: "Berkshire Hathaway", weight: 7.2, assetClass: "US Equity"},
-      {ticker: "TSLA", name: "Tesla Inc.", weight: 6.5, assetClass: "US Equity"},
-      {ticker: "VXUS", name: "Vanguard Total Intl Stock", weight: 9.8, assetClass: "Intl Equity"},
-      {ticker: "VNO", name: "Vanguard Real Estate ETF", weight: 5.9, assetClass: "Real Estate"},
-      {ticker: "GLD", name: "SPDR Gold Trust", weight: 8.0, assetClass: "Commodities"},
-      {ticker: "TIP", name: "iShares TIPS Bond ETF", weight: 8.2, assetClass: "Fixed Income"},
-      {ticker: "CASH", name: "Cash & Money Market", weight: 9.6, assetClass: "Cash"}
-    ]
-  });
 
-  // Use custom portfolio if customizer is being used, otherwise use backend data
-  const activePortfolio = useCustomPortfolio ? customPortfolio : (demoP || customPortfolio);
+  // Get the active portfolio (custom or backend)
+  const activePortfolio = getActivePortfolio(demoP);
   
   // Apply customization changes
   const applyCustomization = () => {
@@ -2644,12 +2677,8 @@ function DemoTab({demoP}){
   
   if(!activePortfolio)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
   
-  // Calculate holdings with proper values
-  const processedHoldings = activePortfolio.holdings?.map(h => ({
-    ...h,
-    value: (h.weight / 100) * activePortfolio.totalValue,
-    weight: h.weight || 0
-  })) || [];
+  // Holdings are already processed by getActivePortfolio
+  const processedHoldings = activePortfolio.holdings || [];
   
   // Calculate regime-adjusted allocations
   const baseAllocation = processedHoldings.reduce((acc, h) => {
@@ -3043,13 +3072,17 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
   const [loading,setLoading]=useState(false);const [result,setResult]=useState(null);const [baseResult,setBaseResult]=useState(null);const [err,setErr]=useState("");
   const [params,setParams]=useState(controls.reduce((acc,c)=>({...acc,[c.key]:c.default}),{}));
   const { isRegimeActive, setIsRegimeActive, regimeConfig, regime } = useRegime();
+  const { getActivePortfolio } = usePortfolio();
   
   const run=async()=>{
     setLoading(true);setErr("");setResult(null);setBaseResult(null);
     try{
+      // Get the active portfolio (custom or backend)
+      const activePortfolio = getActivePortfolio(demoP);
+      
       // Run optimization with and without regime context for comparison
       const requestData = {
-        portfolio: demoP,
+        portfolio: activePortfolio,
         constraints: params,
         regime_mode: isRegimeActive,
         current_regime: regime.current,
@@ -3330,12 +3363,16 @@ function App(){
   
   if(showEducation && !token) {
     return React.createElement(RegimeProvider,null,
-      React.createElement(EducationalLanding,{onEnterPlatform:()=>setShowEducation(false)})
+      React.createElement(PortfolioProvider,null,
+        React.createElement(EducationalLanding,{onEnterPlatform:()=>setShowEducation(false)})
+      )
     );
   }
   
   return React.createElement(RegimeProvider,null,
-    token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("");setShowEducation(true)}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}})
+    React.createElement(PortfolioProvider,null,
+      token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("");setShowEducation(true)}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}})
+    )
   );
 }
 
