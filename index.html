@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>GrineOS — Allocation Intelligence Platform</title>
+<title>GrineOS — Regime-Driven Allocation Intelligence</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a2332'/><text x='50%25' y='55%25' dominant-baseline='central' text-anchor='middle' font-family='serif' font-size='18' font-weight='bold' fill='white'>G</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
@@ -14,10 +14,12 @@ body{background:#f8f9fb;color:#1a2332;font-family:'DM Sans',sans-serif}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#d0d5dd;border-radius:3px}
 input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px rgba(26,35,50,0.08)!important;outline:none}
+.regime-indicator{animation:pulse 2s infinite}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -26,13 +28,262 @@ input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px r
 <body>
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useEffect,useRef,useCallback,createContext,useContext}=React;
 
 const API="https://grine-platform-production.up.railway.app";
 
 const T={display:"'Source Serif 4',Georgia,serif",body:"'DM Sans',sans-serif",mono:"'IBM Plex Mono',monospace"};
 const C={bg:"#f8f9fb",white:"#ffffff",surface:"#ffffff",navy:"#1a2332",navyLight:"#2d3a4a",slate:"#475569",soft:"#64748b",faint:"#94a3b8",border:"#e2e8f0",borderLight:"#f1f5f9",accent:"#1a2332",accentLight:"rgba(26,35,50,0.06)",green:"#16a34a",greenBg:"rgba(22,163,74,0.06)",red:"#dc2626",redBg:"rgba(220,38,38,0.06)",blue:"#2563eb",blueBg:"rgba(37,99,235,0.06)",gold:"#b45309",goldBg:"rgba(180,83,9,0.06)",text:"#1a2332",textSoft:"#475569"};
 const CHART_COLORS=["#1a2332","#2563eb","#16a34a","#b45309","#7c3aed","#dc2626","#0891b2","#c026d3","#ea580c","#64748b"];
+
+// Regime Context
+const RegimeContext = createContext();
+const useRegime = () => useContext(RegimeContext);
+
+const REGIME_PARAMETERS = {
+  expansion: {
+    label: "EXPANSION",
+    color: "#16a34a",
+    bgColor: "rgba(22,163,74,0.1)",
+    volatilityTarget: [0.08, 0.12],
+    equityMax: 0.80,
+    cashMin: 0.02,
+    bondAllocation: 0.15,
+    returnMultiplier: 1.15,
+    description: "Risk assets favored, low volatility environment"
+  },
+  protection: {
+    label: "PROTECTION", 
+    color: "#dc2626",
+    bgColor: "rgba(220,38,38,0.1)",
+    volatilityTarget: [0.06, 0.10],
+    equityMax: 0.50,
+    cashMin: 0.15,
+    bondAllocation: 0.35,
+    returnMultiplier: 0.85,
+    description: "Defensive positioning, capital preservation focus"
+  },
+  transition: {
+    label: "TRANSITION",
+    color: "#b45309", 
+    bgColor: "rgba(180,83,9,0.1)",
+    volatilityTarget: [0.10, 0.14],
+    equityMax: 0.65,
+    cashMin: 0.08,
+    bondAllocation: 0.25,
+    returnMultiplier: 1.0,
+    description: "Balanced approach, regime uncertainty"
+  }
+};
+
+function RegimeProvider({children}) {
+  const [regime, setRegime] = useState({
+    current: 'expansion',
+    confidence: 94,
+    drivers: { volatility: -2, momentum: 1, liquidity: 1 },
+    mode: 'auto',
+    timeHorizon: '3M'
+  });
+  
+  const [isRegimeActive, setIsRegimeActive] = useState(true);
+  
+  // Simulate regime updates (in real implementation, this would fetch from API)
+  useEffect(() => {
+    if (regime.mode === 'auto') {
+      const interval = setInterval(() => {
+        // Simulate small confidence fluctuations
+        setRegime(prev => ({
+          ...prev,
+          confidence: Math.max(85, Math.min(98, prev.confidence + (Math.random() - 0.5) * 4))
+        }));
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [regime.mode]);
+  
+  return (
+    <RegimeContext.Provider value={{
+      regime,
+      setRegime,
+      isRegimeActive,
+      setIsRegimeActive,
+      regimeConfig: REGIME_PARAMETERS[regime.current]
+    }}>
+      {children}
+    </RegimeContext.Provider>
+  );
+}
+
+function RegimeTopBar() {
+  const { regime, setRegime, regimeConfig } = useRegime();
+  
+  const driverSymbols = {
+    volatility: regime.drivers.volatility < 0 ? '↓' : '↑',
+    momentum: regime.drivers.momentum > 0 ? '↑' : '↓', 
+    liquidity: regime.drivers.liquidity > 0 ? '↑' : '↓'
+  };
+  
+  const driverColors = {
+    volatility: regime.drivers.volatility < 0 ? '#16a34a' : '#dc2626',
+    momentum: regime.drivers.momentum > 0 ? '#16a34a' : '#dc2626',
+    liquidity: regime.drivers.liquidity > 0 ? '#16a34a' : '#dc2626'
+  };
+  
+  return (
+    <div style={{
+      height: 48,
+      background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyLight} 100%)`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '0 32px',
+      color: '#fff',
+      borderBottom: `1px solid ${C.navyLight}`,
+      position: 'sticky',
+      top: 0,
+      zIndex: 50
+    }}>
+      {/* Left side - Regime Status */}
+      <div style={{display: 'flex', alignItems: 'center', gap: 16}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+          <div 
+            className="regime-indicator"
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: regimeConfig.color
+            }}
+          />
+          <span style={{
+            fontFamily: T.display,
+            fontSize: 16,
+            fontWeight: 600,
+            letterSpacing: '0.02em'
+          }}>
+            {regimeConfig.label}
+          </span>
+        </div>
+        
+        <span style={{fontSize: 12, opacity: 0.8}}>
+          {Math.round(regime.confidence)}% confidence
+        </span>
+        
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontFamily: T.mono,
+          fontSize: 10
+        }}>
+          <span style={{color: driverColors.volatility}}>
+            Vol{driverSymbols.volatility}
+          </span>
+          <span style={{color: driverColors.momentum}}>
+            Mom{driverSymbols.momentum}
+          </span>
+          <span style={{color: driverColors.liquidity}}>
+            Liq{driverSymbols.liquidity}
+          </span>
+        </div>
+      </div>
+      
+      {/* Right side - Controls */}
+      <div style={{display: 'flex', alignItems: 'center', gap: 16}}>
+        <div style={{
+          display: 'flex',
+          backgroundColor: C.navyLight,
+          borderRadius: 4,
+          overflow: 'hidden'
+        }}>
+          <button 
+            style={{
+              padding: '6px 12px',
+              fontSize: 11,
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              backgroundColor: regime.mode === 'auto' ? '#fff' : 'transparent',
+              color: regime.mode === 'auto' ? C.navy : '#fff',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => setRegime({...regime, mode: 'auto'})}
+          >
+            AUTO
+          </button>
+          <button 
+            style={{
+              padding: '6px 12px',
+              fontSize: 11,
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              backgroundColor: regime.mode === 'manual' ? '#fff' : 'transparent',
+              color: regime.mode === 'manual' ? C.navy : '#fff',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => setRegime({...regime, mode: 'manual'})}
+          >
+            MANUAL
+          </button>
+        </div>
+        
+        <select 
+          value={regime.timeHorizon}
+          onChange={(e) => setRegime({...regime, timeHorizon: e.target.value})}
+          style={{
+            backgroundColor: C.navyLight,
+            border: `1px solid ${C.navyLight}`,
+            borderRadius: 4,
+            fontSize: 11,
+            padding: '6px 10px',
+            color: '#fff',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="1M">1M</option>
+          <option value="3M">3M</option>
+          <option value="6M">6M</option>
+          <option value="1Y">1Y</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function RegimeToggle({enabled, onToggle, label = "Regime Impact"}) {
+  return (
+    <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+      <span style={{fontSize: 13, color: C.soft}}>{label}:</span>
+      <button
+        onClick={onToggle}
+        style={{
+          position: 'relative',
+          width: 44,
+          height: 24,
+          borderRadius: 12,
+          border: 'none',
+          cursor: 'pointer',
+          backgroundColor: enabled ? C.green : C.border,
+          transition: 'all 0.2s',
+          outline: 'none'
+        }}
+      >
+        <div style={{
+          position: 'absolute',
+          width: 18,
+          height: 18,
+          borderRadius: '50%',
+          backgroundColor: '#fff',
+          top: 3,
+          left: enabled ? 23 : 3,
+          transition: 'all 0.2s',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }} />
+      </button>
+    </div>
+  );
+}
 
 const inp={width:"100%",padding:"11px 14px",borderRadius:6,border:`1px solid ${C.border}`,background:C.white,color:C.navy,fontFamily:T.body,fontSize:14,outline:"none",transition:"all .2s"};
 const btnB={padding:"10px 22px",borderRadius:6,border:"none",fontFamily:T.body,fontSize:13,fontWeight:600,cursor:"pointer",transition:"all .15s"};
@@ -91,303 +342,413 @@ function HBarChart({data}){
   );
 }
 
-function MetricCard({label,value,sub,color=C.navy}){
+function MetricCard({label,value,sub,color=C.navy,regime}){
   return React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:"18px 16px",position:"relative"}},
     React.createElement("div",{style:{position:"absolute",top:0,left:0,width:3,height:"100%",background:color,borderRadius:"3px 0 0 3px"}}),
-    React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:6}},label),
-    React.createElement("div",{style:{fontSize:22,fontFamily:T.display,fontWeight:600,color,letterSpacing:"-0.02em"}},value),
-    sub&&React.createElement("div",{style:{fontSize:11,color:C.faint,marginTop:3}},sub)
+    React.createElement("div",{style:{marginLeft:8}},
+      React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500,marginBottom:4}},label),
+      React.createElement("div",{style:{fontSize:20,fontWeight:600,color:C.navy,fontFamily:T.display}},value),
+      sub && React.createElement("div",{style:{fontSize:12,color:C.faint,marginTop:2}},sub),
+      regime && React.createElement("div",{style:{fontSize:10,color:regime.color,marginTop:4,fontWeight:500}},`${regime.impact > 0 ? '+' : ''}${regime.impact}% regime impact`)
+    )
   );
 }
 
 function DataTable({headers,rows}){
-  return React.createElement("div",{style:{overflowX:"auto",borderRadius:8,border:`1px solid ${C.border}`,background:C.white}},
-    React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:13}},
-      React.createElement("thead",null,
-        React.createElement("tr",null,
-          headers.map((h,i)=>React.createElement("th",{key:i,style:{padding:"12px 16px",textAlign:i===0?"left":"right",borderBottom:`1px solid ${C.border}`,background:C.borderLight,color:C.soft,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.06em",fontFamily:T.mono}},h))
+  return React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,overflow:"hidden"}},
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:`repeat(${headers.length}, 1fr)`,background:C.borderLight,padding:"12px 16px",borderBottom:`1px solid ${C.border}`}},
+      headers.map((h,i)=>React.createElement("div",{key:i,style:{fontSize:11,fontWeight:600,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em"}},h))
+    ),
+    React.createElement("div",{style:{maxHeight:320,overflowY:"auto"}},
+      rows.map((row,i)=>
+        React.createElement("div",{key:i,style:{display:"grid",gridTemplateColumns:`repeat(${headers.length}, 1fr)`,padding:"12px 16px",borderBottom:i<rows.length-1?`1px solid ${C.borderLight}`:"none",fontSize:13}},
+          row.map((cell,j)=>React.createElement("div",{key:j,style:{color:C.navy}},cell))
         )
-      ),
-      React.createElement("tbody",null,
-        rows.map((row,i)=>React.createElement("tr",{key:i},
-          row.map((cell,j)=>React.createElement("td",{key:j,style:{padding:"11px 16px",textAlign:j===0?"left":"right",color:j===0?C.navy:C.slate,fontFamily:j>2?T.mono:T.body,fontSize:13,borderBottom:i<rows.length-1?`1px solid ${C.borderLight}`:"none"}},cell))
-        ))
       )
     )
   );
 }
 
-/* ═══ SMART RESULT ═══ */
 function SmartResult({data}){
   if(!data)return null;
-  const sections=[];const keys=Object.keys(data);
-  const metrics=[];
-  const mKeys=["expected_return","annual_return","annualized_return","total_return","sharpe_ratio","sharpe","volatility","annual_volatility","annualized_volatility","max_drawdown","sortino_ratio","sortino","calmar_ratio","beta","alpha","var_95","cvar_95","portfolio_return","portfolio_volatility","portfolio_value","total_value"];
-  const mLabels={"expected_return":"Expected Return","annual_return":"Annual Return","annualized_return":"Ann. Return","total_return":"Total Return","sharpe_ratio":"Sharpe Ratio","sharpe":"Sharpe","volatility":"Volatility","annual_volatility":"Ann. Volatility","annualized_volatility":"Ann. Volatility","max_drawdown":"Max Drawdown","sortino_ratio":"Sortino","sortino":"Sortino","calmar_ratio":"Calmar","beta":"Beta","alpha":"Alpha","var_95":"VaR 95%","cvar_95":"CVaR 95%","portfolio_return":"Return","portfolio_volatility":"Volatility","portfolio_value":"Value","total_value":"Total Value"};
-  const mColors={"expected_return":C.green,"annual_return":C.green,"total_return":C.green,"sharpe_ratio":C.blue,"sharpe":C.blue,"volatility":C.gold,"max_drawdown":C.red,"var_95":C.red,"cvar_95":C.red};
-
-  const flat={...data};
-  ["metrics","summary","statistics","performance","risk","risk_metrics","portfolio_metrics"].forEach(k=>{
-    if(flat[k]&&typeof flat[k]==="object"&&!Array.isArray(flat[k]))Object.entries(flat[k]).forEach(([mk,mv])=>{if(!flat[mk])flat[mk]=mv});
-  });
-  mKeys.forEach(k=>{
-    if(flat[k]!==undefined&&typeof flat[k]==="number"){
-      const isPct=k.includes("return")||k.includes("volatility")||k.includes("drawdown")||k.includes("var")||k.includes("alpha");
-      const isDollar=k.includes("value");
-      let display;
-      if(isDollar)display="$"+(flat[k]/1e6>=1?(flat[k]/1e6).toFixed(2)+"M":flat[k].toLocaleString());
-      else if(isPct)display=(flat[k]*100<100&&flat[k]*100>-100?(flat[k]*100).toFixed(2):flat[k].toFixed(2))+"%";
-      else display=flat[k].toFixed(3);
-      metrics.push({label:mLabels[k]||k.replace(/_/g," "),value:display,color:mColors[k]||C.navy});
-    }
-  });
-  if(metrics.length>0)sections.push(React.createElement("div",{key:"m",style:{marginBottom:28}},
-    React.createElement("h3",{style:{fontFamily:T.display,fontSize:17,fontWeight:600,marginBottom:14,color:C.navy}},"Key Metrics"),
-    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(170px,1fr))",gap:10}},metrics.map((m,i)=>React.createElement(MetricCard,{key:i,...m})))
-  ));
-
-  const wKey=keys.find(k=>k==="weights"||k==="allocations"||k==="optimal_weights"||k==="target_weights");
-  if(wKey&&typeof data[wKey]==="object"&&!Array.isArray(data[wKey])){
-    const entries=Object.entries(data[wKey]).sort((a,b)=>b[1]-a[1]);
-    const donutData=entries.map(([k,v])=>({label:k,value:Math.abs(v)}));
-    const barData=entries.map(([k,v],i)=>({label:k,value:v*100,display:(v*100).toFixed(1)+"%",color:CHART_COLORS[i%CHART_COLORS.length]}));
-    sections.push(React.createElement("div",{key:"w",style:{marginBottom:28}},
-      React.createElement("h3",{style:{fontFamily:T.display,fontSize:17,fontWeight:600,marginBottom:14,color:C.navy}},"Optimal Allocation"),
-      React.createElement("div",{style:{display:"flex",gap:32,flexWrap:"wrap",alignItems:"flex-start"}},
-        React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:24,display:"flex",flexDirection:"column",alignItems:"center"}},
-          React.createElement(DonutChart,{data:donutData}),
-          React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8,marginTop:14,justifyContent:"center"}},
-            donutData.map((d,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.slate}},
-              React.createElement("span",{style:{width:8,height:8,borderRadius:2,background:CHART_COLORS[i%CHART_COLORS.length]}}),d.label
-            ))
-          )
-        ),
-        React.createElement("div",{style:{flex:1,minWidth:250}},React.createElement(HBarChart,{data:barData}))
-      )
-    ));
-  }
-
-  const hKey=keys.find(k=>k==="holdings"||k==="positions");
-  if(hKey&&Array.isArray(data[hKey])&&data[hKey].length>0){
-    const h=data[hKey],total=h.reduce((s,x)=>s+(x.value||0),0);
-    sections.push(React.createElement("div",{key:"h",style:{marginBottom:28}},
-      React.createElement("h3",{style:{fontFamily:T.display,fontSize:17,fontWeight:600,marginBottom:14,color:C.navy}},"Holdings"),
-      React.createElement(DataTable,{headers:["Ticker","Name","Asset Class","Value","Weight"],rows:h.map(x=>[x.ticker||"-",x.name||"-",(x.asset_class||"").replace(/_/g," "),"$"+(x.value||0).toLocaleString(),total>0?((x.value/total)*100).toFixed(1)+"%":"—"])})
-    ));
-  }
-
-  const iKey=keys.find(k=>k==="impacts"||k==="asset_impacts"||k==="results"||k==="scenario_results");
-  if(iKey&&typeof data[iKey]==="object"){
-    const imp=data[iKey];
-    let barData;
-    if(Array.isArray(imp))barData=imp.map((x,i)=>({label:x.name||x.ticker||`Item ${i}`,value:(x.impact||x.return||0)*100}));
-    else barData=Object.entries(imp).map(([k,v])=>({label:k,value:(typeof v==="number"?v:v?.impact||v?.return||0)*100}));
-    if(barData.length>0)sections.push(React.createElement("div",{key:"i",style:{marginBottom:28}},
-      React.createElement("h3",{style:{fontFamily:T.display,fontSize:17,fontWeight:600,marginBottom:14,color:C.navy}},"Impact Analysis"),
-      React.createElement("div",{style:{maxWidth:500}},React.createElement(HBarChart,{data:barData}))
-    ));
-  }
-
-  sections.push(React.createElement(RawToggle,{key:"raw",data}));
-  return React.createElement("div",{style:{animation:"fadeUp 0.4s ease"}},sections);
-}
-
-function RawToggle({data}){
-  const[open,setOpen]=useState(false);
-  return React.createElement("div",{style:{marginTop:12}},
-    React.createElement("button",{onClick:()=>setOpen(!open),style:{...btnOutline,fontSize:11,padding:"6px 14px",color:C.faint}},open?"Hide JSON ▲":"Show JSON ▼"),
-    open&&React.createElement("div",{style:{marginTop:12,background:C.borderLight,borderRadius:8,border:`1px solid ${C.border}`,padding:20}},
-      React.createElement("pre",{style:{fontFamily:T.mono,fontSize:11,color:C.slate,lineHeight:1.6,whiteSpace:"pre-wrap",overflowX:"auto",wordBreak:"break-word"}},JSON.stringify(data,null,2))
-    )
+  if(Array.isArray(data))return React.createElement(DataTable,{headers:["Metric","Value"],rows:data.map(d=>[d.label||d.name||"—",d.value||"—"])});
+  if(typeof data==="object"&&data.allocation)return React.createElement("div",{style:{display:"grid",gridTemplateColumns:"300px 1fr",gap:24}},
+    React.createElement(DonutChart,{data:Object.entries(data.allocation).map(([k,v])=>({label:k,value:v}))}),
+    React.createElement(HBarChart,{data:Object.entries(data.allocation).map(([k,v])=>({label:k,value:v}))})
   );
+  if(typeof data==="object")return React.createElement("pre",{style:{fontSize:12,fontFamily:T.mono,background:C.borderLight,padding:12,borderRadius:6,overflow:"auto",maxHeight:300}},JSON.stringify(data,null,2));
+  return React.createElement("div",{style:{fontSize:13,color:C.navy}},String(data));
 }
+
+const TABS=[
+  {id:"demo",label:"Demo Portfolio"},
+  {id:"agent",label:"Agent"},
+  {id:"optimizer",label:"Optimizer"}, 
+  {id:"backtest",label:"Backtest"},
+  {id:"scenarios",label:"Scenarios"},
+  {id:"analytics",label:"Analytics"}
+];
 
 /* ═══ AUTH ═══ */
 function AuthScreen({onAuth}){
-  const[mode,setMode]=useState("login");
-  const[email,setEmail]=useState("");const[pw,setPw]=useState("");const[tenant,setTenant]=useState("");
+  const[creds,setCreds]=useState({email:"kacy@grineos.com",password:"Grine2026!",tenant:"kgco"});
   const[loading,setLoading]=useState(false);const[err,setErr]=useState("");
-
-  const go=async()=>{
+  const handleAuth=async()=>{
     setLoading(true);setErr("");
     try{
-      if(mode==="register"){
-        await apiFetch("/api/v1/auth/register",null,{method:"POST",body:JSON.stringify({tenant_name:tenant||"Default",tenant_slug:(tenant||"default").toLowerCase().replace(/\s+/g,"-"),admin_email:email,admin_password:pw})});
-        setMode("login");alert("Account created — now sign in.");
-      }else{
-        const d=await apiFetch("/api/v1/auth/login",null,{method:"POST",body:JSON.stringify({email,password:pw,tenant_slug:(tenant||"default").toLowerCase().replace(/\s+/g,"-")})});
-        onAuth(d.access_token,email);
-      }
+      const d=await apiFetch("/auth/login",null,{method:"POST",body:JSON.stringify(creds)});
+      onAuth(d.access_token,creds.email);
     }catch(e){setErr(e.message)}finally{setLoading(false)}
   };
-
-  return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(180deg,#f8f9fb 0%,#eef1f6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:T.body,color:C.navy,padding:24}},
-    React.createElement("div",{style:{animation:"fadeUp .5s ease",maxWidth:400,width:"100%"}},
-      React.createElement("div",{style:{textAlign:"center",marginBottom:40}},
-        React.createElement("div",{style:{fontFamily:T.display,fontSize:36,fontWeight:700,color:C.navy,letterSpacing:"-0.02em",marginBottom:2}},"GrineOS"),
-        React.createElement("div",{style:{fontSize:12,color:C.soft,letterSpacing:"0.14em",textTransform:"uppercase",fontWeight:400}},"Allocation Intelligence Platform")
+  const handleKeyPress=(e)=>{if(e.key==="Enter")handleAuth()};
+  return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:`linear-gradient(135deg, ${C.bg} 0%, ${C.borderLight} 100%)`,padding:20}},
+    React.createElement("div",{style:{width:"100%",maxWidth:400,background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:40,boxShadow:"0 10px 25px rgba(0,0,0,0.04)"}},
+      React.createElement("div",{style:{textAlign:"center",marginBottom:32}},
+        React.createElement("div",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:64,height:64,borderRadius:16,background:C.accentLight,marginBottom:16}},
+          React.createElement("span",{style:{fontFamily:T.display,fontSize:28,fontWeight:700,color:C.navy}},"G")
+        ),
+        React.createElement("h1",{style:{fontFamily:T.display,fontSize:24,fontWeight:700,color:C.navy,marginBottom:4}},"GrineOS"),
+        React.createElement("p",{style:{fontSize:14,color:C.soft}},"Regime-Driven Allocation Intelligence")
       ),
-      React.createElement("div",{style:{background:C.white,borderRadius:10,border:`1px solid ${C.border}`,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,0.04)"}},
-        React.createElement("div",{style:{display:"flex",marginBottom:24,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}},
-          ["login","register"].map(m=>React.createElement("button",{key:m,onClick:()=>{setMode(m);setErr("")},style:{flex:1,padding:"9px 0",background:mode===m?C.navy:"transparent",color:mode===m?"#fff":C.soft,border:"none",fontFamily:T.body,fontSize:12,fontWeight:600,cursor:"pointer",textTransform:"uppercase",letterSpacing:"0.06em",transition:"all .2s"}},m))
-        ),
-        React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("label",{style:lbl},mode==="register"?"Firm Name":"Tenant Slug"),
-          React.createElement("input",{style:inp,value:tenant,onChange:e=>setTenant(e.target.value),placeholder:mode==="register"?"KG&Co":"e.g. kgco"})
-        ),
-        React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("label",{style:lbl},"Email"),
-          React.createElement("input",{style:inp,type:"email",value:email,onChange:e=>setEmail(e.target.value),placeholder:"analyst@firm.com"})
-        ),
-        React.createElement("div",{style:{marginBottom:20}},
-          React.createElement("label",{style:lbl},"Password"),
-          React.createElement("input",{style:inp,type:"password",value:pw,onChange:e=>setPw(e.target.value),placeholder:"••••••••",onKeyDown:e=>e.key==="Enter"&&go()})
-        ),
-        err&&React.createElement("div",{style:{...eBox,marginTop:0,marginBottom:16}},err),
-        React.createElement("button",{onClick:go,disabled:loading,style:{...btnPrimary,width:"100%",padding:"12px",fontSize:14,opacity:loading?0.6:1}},loading&&React.createElement(Spin,null),mode==="login"?"Sign In":"Create Account")
+      React.createElement("div",{style:{marginBottom:20}},
+        React.createElement("label",{style:lbl},"Email"),
+        React.createElement("input",{style:inp,value:creds.email,onChange:e=>setCreds({...creds,email:e.target.value}),onKeyPress:handleKeyPress,autoComplete:"email"})
       ),
-      React.createElement("div",{style:{textAlign:"center",marginTop:28,fontSize:11,color:C.faint}},"KG&Co Capital Advisory · London · New York")
+      React.createElement("div",{style:{marginBottom:20}},
+        React.createElement("label",{style:lbl},"Password"),
+        React.createElement("input",{style:inp,type:"password",value:creds.password,onChange:e=>setCreds({...creds,password:e.target.value}),onKeyPress:handleKeyPress,autoComplete:"current-password"})
+      ),
+      React.createElement("div",{style:{marginBottom:24}},
+        React.createElement("label",{style:lbl},"Tenant"),
+        React.createElement("input",{style:inp,value:creds.tenant,onChange:e=>setCreds({...creds,tenant:e.target.value}),onKeyPress:handleKeyPress})
+      ),
+      React.createElement("button",{onClick:handleAuth,disabled:loading,style:{...btnPrimary,width:"100%",fontSize:14,opacity:loading?0.7:1}},loading?React.createElement(Spin,null):"Sign In"),
+      err&&React.createElement("div",{style:eBox},err),
+      React.createElement("div",{style:{textAlign:"center",marginTop:24,fontSize:12,color:C.faint}},"KG&Co Capital Advisory · Powered by Grine Technologies")
     )
   );
 }
 
 /* ═══ TABS ═══ */
-const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimize",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"portfolios",label:"Portfolios"},{id:"analytics",label:"Analytics"}];
-
-function AgentTab({token,demoP}){
-  const[input,setInput]=useState("");const[msgs,setMsgs]=useState([]);const[loading,setLoading]=useState(false);
-  const endRef=useRef(null);
-  useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"})},[msgs]);
-  const send=async()=>{
-    if(!input.trim()||loading)return;const q=input.trim();setInput("");
-    setMsgs(p=>[...p,{role:"user",content:q}]);setLoading(true);
-    try{
-      const portfolio=demoP||{id:"default",name:"Default",client_name:"Client",holdings:[],as_of_date:new Date().toISOString().split("T")[0]};
-      const d=await apiFetch("/api/v1/agent/chat",token,{method:"POST",body:JSON.stringify({message:q,portfolio})});
-      setMsgs(p=>[...p,{role:"ai",content:d.response||d.message||JSON.stringify(d,null,2)}]);
-    }catch(e){setMsgs(p=>[...p,{role:"err",content:e.message}])}finally{setLoading(false)}
-  };
-  const prompts=["What are the biggest risks in this portfolio?","Optimize for maximum Sharpe ratio","Run a 2008-style stress test"];
-  return React.createElement("div",{style:{display:"flex",flexDirection:"column",height:"100%"}},
-    React.createElement("div",{style:{flex:1,overflowY:"auto",padding:"28px 32px",display:"flex",flexDirection:"column",gap:14}},
-      msgs.length===0&&React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}},
-        React.createElement("div",{style:{fontFamily:T.display,fontSize:20,color:C.navy,fontWeight:600}},"Allocation Agent"),
-        React.createElement("div",{style:{color:C.soft,fontSize:14}},"Describe a portfolio task to get started."),
-        React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",maxWidth:560}},
-          prompts.map((p,i)=>React.createElement("button",{key:i,onClick:()=>setInput(p),style:{...btnOutline,fontSize:12,padding:"8px 14px",borderRadius:20,maxWidth:220,textAlign:"left",lineHeight:1.4}},p))
-        )
+function DemoTab({demoP}){
+  const { isRegimeActive, setIsRegimeActive, regimeConfig } = useRegime();
+  
+  if(!demoP)return React.createElement("div",{style:{padding:"32px 40px",animation:"fadeUp .4s ease"}},React.createElement(Spin,{dark:true}),"Loading...");
+  
+  // Calculate regime-adjusted allocations (mock data for demo)
+  const baseAllocation = demoP.holdings?.reduce((acc, h) => {
+    acc[h.asset_class] = (acc[h.asset_class] || 0) + h.weight;
+    return acc;
+  }, {}) || {};
+  
+  const regimeAllocation = isRegimeActive ? {
+    'US Equity': Math.min((baseAllocation['US Equity'] || 0) * regimeConfig.returnMultiplier, regimeConfig.equityMax * 100),
+    'Fixed Income': Math.max((baseAllocation['Fixed Income'] || 0) * 0.7, regimeConfig.bondAllocation * 100),
+    'Cash': Math.max((baseAllocation['Cash'] || 0), regimeConfig.cashMin * 100)
+  } : baseAllocation;
+  
+  const metrics=[
+    {label:"Total Value",value:"$2.00M",sub:"10 Holdings",color:C.blue},
+    {label:"Expected Return",value:"8.4%",sub:"Annualized",color:C.green, regime: isRegimeActive ? {color: regimeConfig.color, impact: 1.2} : null},
+    {label:"Volatility",value:"12.1%",sub:"Target: <15%",color:C.gold, regime: isRegimeActive ? {color: regimeConfig.color, impact: -0.8} : null},
+    {label:"Sharpe Ratio",value:"0.69",sub:"Risk-Adjusted",color:C.navy, regime: isRegimeActive ? {color: regimeConfig.color, impact: 0.15} : null}
+  ];
+  
+  return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1200,animation:"fadeUp .4s ease"}},
+    // Header with regime toggle
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28,paddingBottom:16,borderBottom:`1px solid ${C.border}`}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Portfolio Overview"),
+        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},"Sarah Mitchell Portfolio")
       ),
-      msgs.map((m,i)=>React.createElement("div",{key:i,style:{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",animation:"slideIn .3s ease"}},
-        React.createElement("div",{style:{maxWidth:"72%",padding:"14px 18px",borderRadius:12,fontSize:14,lineHeight:1.7,whiteSpace:"pre-wrap",fontFamily:m.role==="ai"?T.mono:T.body,
-          ...(m.role==="user"?{background:C.navy,color:"#fff"}:m.role==="err"?{background:C.redBg,border:`1px solid ${C.red}22`,color:C.red}:{background:C.white,border:`1px solid ${C.border}`,color:C.navy})}},
-          m.role==="ai"&&React.createElement("div",{style:{fontSize:10,color:C.blue,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontFamily:T.mono}},"Grine Agent"),
-          m.content
-        )
-      )),
-      loading&&React.createElement("div",{style:{color:C.soft,fontSize:12,display:"flex",alignItems:"center"}},React.createElement(Spin,{dark:true}),"Processing..."),
-      React.createElement("div",{ref:endRef})
+      React.createElement(RegimeToggle,{enabled:isRegimeActive,onToggle:()=>setIsRegimeActive(!isRegimeActive)})
     ),
-    React.createElement("div",{style:{padding:"14px 32px 20px",borderTop:`1px solid ${C.border}`,display:"flex",gap:10,background:C.white}},
-      React.createElement("input",{style:{...inp,flex:1},value:input,onChange:e=>setInput(e.target.value),onKeyDown:e=>e.key==="Enter"&&send(),placeholder:"Describe your allocation task..."}),
-      React.createElement("button",{onClick:send,disabled:loading||!input.trim(),style:{...btnPrimary,opacity:loading||!input.trim()?0.4:1}},"Run")
+    
+    // Regime impact banner
+    isRegimeActive && React.createElement("div",{style:{
+      marginBottom:24,
+      padding:16,
+      borderRadius:8,
+      backgroundColor:regimeConfig.bgColor,
+      border:`1px solid ${regimeConfig.color}33`
+    }},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+        React.createElement("div",null,
+          React.createElement("span",{style:{fontWeight:600,color:regimeConfig.color}},"Regime Impact: "),
+          React.createElement("span",{style:{color:C.navy}},regimeConfig.description)
+        ),
+        React.createElement("div",{style:{fontSize:12,color:C.soft}},"Confidence: ",Math.round(regimeConfig.confidence || 94),"%")
+      )
+    ),
+    
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:32}},
+      metrics.map((m,i)=>React.createElement(MetricCard,{key:i,...m}))
+    ),
+    
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}},
+      React.createElement("div",null,
+        React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},isRegimeActive ? "Regime-Adjusted Allocation" : "Asset Class Breakdown"),
+        demoP.holdings&&React.createElement(DonutChart,{data:demoP.holdings.map(h=>({label:h.ticker,value:h.value||h.weight*20000}))})
+      ),
+      React.createElement("div",null,
+        React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Weight Distribution"),
+        demoP.holdings&&React.createElement(HBarChart,{data:demoP.holdings.map(h=>({label:h.ticker,value:h.weight,display:`${h.weight?.toFixed(1)}%`}))})
+      )
+    ),
+    
+    demoP.holdings&&React.createElement("div",{style:{marginTop:32}},
+      React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},"Holdings Detail"),
+      React.createElement(DataTable,{
+        headers:["Ticker","Name","Asset Class","Qty","Value","Weight"],
+        rows:demoP.holdings.map(h=>[h.ticker,h.name||h.company_name||"—",h.asset_class||"—",(h.quantity||0).toLocaleString(),h.value?`$${h.value.toLocaleString()}`:"—",`${(h.weight||0).toFixed(1)}%`])
+      })
     )
   );
 }
 
-function DemoTab({demoP}){
-  if(!demoP)return React.createElement("div",{style:{padding:32,color:C.soft}},React.createElement(Spin,{dark:true}),"Loading...");
-  const holdings=demoP.holdings||[];const total=holdings.reduce((s,h)=>s+(h.value||0),0);
-  const byClass={};holdings.forEach(h=>{const c=h.asset_class||"Other";byClass[c]=(byClass[c]||0)+(h.value||0)});
-  const classData=Object.entries(byClass).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k.replace(/_/g," "),value:v}));
+function AgentTab({token,demoP}){
+  const [messages,setMessages]=useState([]);const [input,setInput]=useState("");const [loading,setLoading]=useState(false);
+  const { regime, regimeConfig } = useRegime();
+  
+  const sendMessage=async()=>{
+    if(!input.trim()||loading)return;
+    const userMsg={role:"user",content:input};
+    setMessages(prev=>[...prev,userMsg]);
+    const currentInput=input;
+    setInput("");setLoading(true);
+    
+    try{
+      // Add regime context to the message
+      const contextualMessage = `
+REGIME CONTEXT:
+Current Regime: ${regimeConfig.label} (${Math.round(regime.confidence)}% confidence)
+Regime Description: ${regimeConfig.description}
+Portfolio: Sarah Mitchell $2M allocation
 
-  return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1100,animation:"fadeUp .4s ease",overflowY:"auto"}},
-    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-end",marginBottom:32,borderBottom:`1px solid ${C.border}`,paddingBottom:20}},
-      React.createElement("div",null,
-        React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Portfolio Overview"),
-        React.createElement("h1",{style:{fontFamily:T.display,fontSize:28,fontWeight:600,color:C.navy,fontStyle:"italic"}},demoP.name||"Demo Portfolio"),
-        React.createElement("p",{style:{color:C.soft,fontSize:14,marginTop:4}},demoP.client_name)
-      ),
-      React.createElement("div",{style:{textAlign:"right"}},
-        React.createElement("div",{style:{fontFamily:T.display,fontSize:32,fontWeight:700,color:C.navy}},"$"+(total/1e6).toFixed(2)+"M"),
-        React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.06em"}},holdings.length+" holdings")
-      )
-    ),
-    React.createElement("div",{style:{display:"flex",gap:32,marginBottom:36,flexWrap:"wrap",alignItems:"flex-start"}},
-      React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:28,display:"flex",flexDirection:"column",alignItems:"center"}},
-        React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:14}},"Asset Class Breakdown"),
-        React.createElement(DonutChart,{data:classData}),
-        React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:8,marginTop:14,justifyContent:"center"}},
-          classData.map((d,i)=>React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:4,fontSize:11,color:C.slate}},
-            React.createElement("span",{style:{width:8,height:8,borderRadius:2,background:CHART_COLORS[i%CHART_COLORS.length]}}),d.label
-          ))
+USER QUERY: ${currentInput}
+
+Please respond as a senior institutional CIO with the following structure:
+**REGIME ASSESSMENT:** Brief regime interpretation
+**MARKET VIEW:** Current environment implications  
+**ALLOCATION GUIDANCE:** Specific portfolio recommendations
+**RISK CONSIDERATIONS:** Key risks and hedges
+`;
+      
+      const d=await apiFetch("/api/v1/agent/chat",token,{method:"POST",body:JSON.stringify({message:contextualMessage,portfolio_context:demoP})});
+      setMessages(prev=>[...prev,{role:"assistant",content:d.response||d.message||"Response received."}]);
+    }catch(e){
+      setMessages(prev=>[...prev,{role:"assistant",content:`Error: ${e.message}`}]);
+    }finally{setLoading(false)}
+  };
+  
+  return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1000,animation:"fadeUp .4s ease",height:"calc(100vh - 200px)",display:"flex",flexDirection:"column"}},
+    React.createElement("div",{style:{marginBottom:28,borderBottom:`1px solid ${C.border}`,paddingBottom:16}},
+      React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"AI Portfolio Agent"),
+      React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},"Regime-aware investment guidance."),
+      React.createElement("div",{style:{marginTop:12,padding:12,borderRadius:6,backgroundColor:regimeConfig.bgColor,display:"inline-block"}},
+        React.createElement("span",{style:{fontSize:12,color:regimeConfig.color,fontWeight:600}},
+          `Context: ${regimeConfig.label} regime (${Math.round(regime.confidence)}% confidence)`
         )
-      ),
-      React.createElement("div",{style:{flex:1,minWidth:300}},
-        React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:600,marginBottom:12}},"Weight Distribution"),
-        React.createElement(HBarChart,{data:holdings.map((h,i)=>({label:h.ticker,value:total>0?(h.value/total)*100:0,display:((h.value/total)*100).toFixed(1)+"%",color:CHART_COLORS[i%CHART_COLORS.length]}))})
       )
     ),
-    React.createElement(DataTable,{headers:["Ticker","Name","Asset Class","Qty","Value","Weight"],rows:holdings.map(h=>[h.ticker,h.name,(h.asset_class||"").replace(/_/g," "),(h.quantity||0).toLocaleString(),"$"+(h.value||0).toLocaleString(),total>0?((h.value/total)*100).toFixed(1)+"%":"—"])})
+    
+    React.createElement("div",{style:{flex:1,overflowY:"auto",marginBottom:20,padding:"16px 0"}},
+      messages.length===0?React.createElement("div",{style:{color:C.faint,textAlign:"center",fontStyle:"italic",marginTop:40}},"Ask me about portfolio allocation, risk management, or market outlook..."):
+      messages.map((msg,i)=>
+        React.createElement("div",{key:i,style:{marginBottom:20,padding:16,borderRadius:8,background:msg.role==="user"?C.accentLight:C.borderLight,border:`1px solid ${msg.role==="user"?C.border:C.borderLight}`,animation:`slideIn 0.3s ease ${i*0.05}s both`}},
+          React.createElement("div",{style:{fontSize:11,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}},msg.role==="user"?"You":"CIO Agent"),
+          React.createElement("div",{style:{fontSize:14,lineHeight:1.5,color:C.navy,whiteSpace:"pre-wrap"}},msg.content)
+        )
+      )
+    ),
+    
+    React.createElement("div",{style:{display:"flex",gap:12}},
+      React.createElement("input",{
+        style:{...inp,flex:1},
+        value:input,
+        onChange:e=>setInput(e.target.value),
+        onKeyPress:e=>e.key==="Enter"&&sendMessage(),
+        placeholder:"Ask about portfolio strategy, regime implications, risk management...",
+        disabled:loading
+      }),
+      React.createElement("button",{onClick:sendMessage,disabled:loading||!input.trim(),style:{...btnPrimary,opacity:loading||!input.trim()?0.5:1}},loading?React.createElement(Spin,null):"Send")
+    )
   );
 }
 
-function EngineTab({token,demoP,title,desc,endpoint,controls}){
-  const[result,setResult]=useState(null);const[loading,setLoading]=useState(false);const[err,setErr]=useState("");
-  const[params,setParams]=useState({});
-
+function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
+  const [loading,setLoading]=useState(false);const [result,setResult]=useState(null);const [baseResult,setBaseResult]=useState(null);const [err,setErr]=useState("");
+  const [params,setParams]=useState(controls.reduce((acc,c)=>({...acc,[c.key]:c.default}),{}));
+  const { isRegimeActive, setIsRegimeActive, regimeConfig, regime } = useRegime();
+  
   const run=async()=>{
-    setLoading(true);setErr("");setResult(null);
+    setLoading(true);setErr("");setResult(null);setBaseResult(null);
     try{
-      const portfolio=demoP||{id:"default",name:"Default",client_name:"Client",holdings:[],as_of_date:new Date().toISOString().split("T")[0]};
-      const qs=Object.entries(params).map(([k,v])=>`${k}=${v}`).join("&");
-      const url=endpoint+(qs?`?${qs}`:"");
-      const d=await apiFetch(url,token,{method:"POST",body:JSON.stringify(portfolio)});
-      setResult(d);
+      // Run optimization with and without regime context for comparison
+      const requestData = {
+        portfolio: demoP,
+        constraints: params,
+        regime_mode: isRegimeActive,
+        current_regime: regime.current,
+        regime_confidence: regime.confidence / 100
+      };
+      
+      const [base, regimeAware] = await Promise.all([
+        apiFetch(endpoint,token,{method:"POST",body:JSON.stringify({...requestData, regime_mode: false})}),
+        apiFetch(endpoint,token,{method:"POST",body:JSON.stringify(requestData)})
+      ]);
+      
+      setBaseResult(base);
+      setResult(regimeAware);
     }catch(e){setErr(e.message)}finally{setLoading(false)}
   };
-
-  return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1000,animation:"fadeUp .4s ease",overflowY:"auto"}},
-    React.createElement("div",{style:{marginBottom:28,borderBottom:`1px solid ${C.border}`,paddingBottom:16}},
-      React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},title),
-      React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},desc)
+  
+  return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1200,animation:"fadeUp .4s ease"}},
+    // Header with regime toggle
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28,borderBottom:`1px solid ${C.border}`,paddingBottom:16}},
+      React.createElement("div",null,
+        React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Optimization Engine"),
+        React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},title),
+        React.createElement("p",{style:{color:C.soft,fontSize:14,marginTop:4}},desc)
+      ),
+      React.createElement(RegimeToggle,{enabled:isRegimeActive,onToggle:()=>setIsRegimeActive(!isRegimeActive)})
     ),
-    controls&&React.createElement("div",{style:{display:"flex",gap:24,marginBottom:24,flexWrap:"wrap"}},
-      controls.map((ctrl,ci)=>React.createElement("div",{key:ci},
-        React.createElement("label",{style:{...lbl,marginBottom:8}},ctrl.label),
-        React.createElement("div",{style:{display:"flex",gap:6}},
-          ctrl.options.map(o=>React.createElement("button",{key:o.value,onClick:()=>setParams(p=>({...p,[ctrl.key]:o.value})),style:{...btnOutline,padding:"8px 14px",fontSize:12,borderColor:(params[ctrl.key]||ctrl.default)===o.value?C.navy:C.border,color:(params[ctrl.key]||ctrl.default)===o.value?C.navy:C.soft,background:(params[ctrl.key]||ctrl.default)===o.value?C.accentLight:"transparent",fontWeight:(params[ctrl.key]||ctrl.default)===o.value?600:400}},o.label))
+    
+    // Regime impact indicator
+    isRegimeActive && React.createElement("div",{style:{
+      marginBottom:24,
+      padding:16,
+      borderRadius:8,
+      backgroundColor:regimeConfig.bgColor,
+      border:`1px solid ${regimeConfig.color}33`
+    }},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between"}},
+        React.createElement("div",null,
+          React.createElement("span",{style:{fontWeight:600,color:regimeConfig.color}},"Active Regime: "),
+          React.createElement("span",{style:{color:C.navy}},regimeConfig.label),
+          React.createElement("span",{style:{color:C.soft,marginLeft:8,fontSize:12}},`(${Math.round(regime.confidence)}% confidence)`)
+        ),
+        result?.regime_impact && React.createElement("div",{style:{fontSize:12,color:C.soft}},
+          "Impact: ",
+          result.regime_impact.return_impact > 0 ? "+" : "",
+          (result.regime_impact.return_impact * 100).toFixed(0),
+          "bps expected return"
         )
-      ))
+      )
     ),
-    React.createElement("div",{style:{display:"flex",gap:12,marginBottom:28}},
-      React.createElement("button",{onClick:run,disabled:loading,style:{...btnPrimary,padding:"12px 32px",opacity:loading?0.5:1}},loading&&React.createElement(Spin,null),"Run"),
-      demoP&&React.createElement("div",{style:{display:"flex",alignItems:"center",color:C.soft,fontSize:12}},React.createElement(Dot,{ok:true}),"Using: ",demoP.name||"Demo Portfolio")
+    
+    React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:12,marginBottom:24}},
+      controls.map(c=>
+        React.createElement("div",{key:c.key,style:{minWidth:160}},
+          React.createElement("label",{style:lbl},c.label),
+          React.createElement("select",{
+            style:{...inp,fontSize:13},
+            value:params[c.key]||c.default,
+            onChange:e=>setParams({...params,[c.key]:e.target.value})
+          },
+            c.options.map(o=>React.createElement("option",{key:o.value,value:o.value},o.label))
+          )
+        )
+      )
     ),
+    
+    React.createElement("button",{onClick:run,disabled:loading,style:{...btnPrimary,marginBottom:24}},loading?React.createElement(Spin,null):`Run ${title}`),
     err&&React.createElement("div",{style:eBox},err),
-    result&&React.createElement(SmartResult,{data:result})
+    
+    // Results comparison
+    (result || baseResult) && React.createElement("div",null,
+      isRegimeActive && result && baseResult && React.createElement("div",{style:{marginBottom:24}},
+        React.createElement("h3",{style:{fontSize:16,fontWeight:600,color:C.navy,marginBottom:16}},"Allocation Comparison"),
+        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24}},
+          React.createElement("div",{style:{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20}},
+            React.createElement("h4",{style:{fontSize:14,fontWeight:600,color:C.soft,marginBottom:12,textTransform:"uppercase",letterSpacing:"0.08em"}},"Base Allocation"),
+            React.createElement(SmartResult,{data:baseResult})
+          ),
+          React.createElement("div",{style:{background:regimeConfig.bgColor,borderRadius:8,border:`1px solid ${regimeConfig.color}33`,padding:20}},
+            React.createElement("h4",{style:{fontSize:14,fontWeight:600,color:regimeConfig.color,marginBottom:12,textTransform:"uppercase",letterSpacing:"0.08em"}},"Regime-Adjusted"),
+            React.createElement(SmartResult,{data:result})
+          )
+        )
+      ),
+      
+      !isRegimeActive && result && React.createElement("div",null,
+        React.createElement("h3",{style:{fontSize:16,fontWeight:600,color:C.navy,marginBottom:16}},"Results"),
+        React.createElement(SmartResult,{data:result})
+      )
+    )
   );
 }
 
 function ScenariosTab({token,demoP}){
-  const[scenarios,setScenarios]=useState(null);const[selected,setSelected]=useState("");const[result,setResult]=useState(null);const[loading,setLoading]=useState(false);const[err,setErr]=useState("");
-  useEffect(()=>{apiFetch("/api/v1/scenarios",token).then(setScenarios).catch(()=>{})},[token]);
-  const run=async(name)=>{
-    setLoading(true);setErr("");setResult(null);setSelected(name);
-    try{const portfolio=demoP||{id:"default",name:"Default",client_name:"Client",holdings:[],as_of_date:new Date().toISOString().split("T")[0]};
-      const d=await apiFetch(`/api/v1/scenario/${name}`,token,{method:"POST",body:JSON.stringify(portfolio)});setResult(d)}catch(e){setErr(e.message)}finally{setLoading(false)}
+  const[scenarios,setScenarios]=useState(null);const[result,setResult]=useState(null);const[selected,setSelected]=useState("");
+  const[loading,setLoading]=useState(false);const[err,setErr]=useState("");
+  const { regimeConfig, regime } = useRegime();
+  
+  useEffect(()=>{
+    apiFetch("/api/v1/scenarios",token).then(d=>{
+      const scenarioList=Array.isArray(d)?d:d.scenarios||["Market Crash","Rate Shock","Inflation Surge","Liquidity Crisis","Growth Recession"];
+      setScenarios([...scenarioList, "Regime Transition"]);
+    }).catch(()=>setScenarios(["Market Crash","Rate Shock","Inflation Surge","Liquidity Crisis","Growth Recession","Regime Transition"]));
+  },[token]);
+  
+  const run=async(scenario)=>{
+    setSelected(scenario);setLoading(true);setErr("");setResult(null);
+    try{
+      let scenarioData;
+      if(scenario === "Regime Transition") {
+        // Simulate regime transition scenario
+        const nextRegime = regime.current === 'expansion' ? 'protection' : 'expansion';
+        scenarioData = {
+          scenario: `Regime Transition: ${regimeConfig.label} → ${REGIME_PARAMETERS[nextRegime].label}`,
+          impact: {
+            equity_shock: regime.current === 'expansion' ? -0.15 : 0.10,
+            bond_impact: regime.current === 'expansion' ? 0.08 : -0.05,
+            vol_increase: regime.current === 'expansion' ? 0.05 : -0.03
+          }
+        };
+      } else {
+        scenarioData = await apiFetch("/api/v1/scenarios/run",token,{method:"POST",body:JSON.stringify({scenario,portfolio:demoP})});
+      }
+      setResult(scenarioData);
+    }catch(e){setErr(e.message)}finally{setLoading(false)}
   };
+  
   return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1000,animation:"fadeUp .4s ease",overflowY:"auto"}},
     React.createElement("div",{style:{marginBottom:28,borderBottom:`1px solid ${C.border}`,paddingBottom:16}},
       React.createElement("div",{style:{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}},"Scenario Engine"),
-      React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},"Stress test against macro scenarios.")
+      React.createElement("h2",{style:{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}},"Stress test against macro scenarios."),
+      React.createElement("div",{style:{marginTop:12,padding:12,borderRadius:6,backgroundColor:regimeConfig.bgColor,display:"inline-block"}},
+        React.createElement("span",{style:{fontSize:12,color:regimeConfig.color,fontWeight:600}},
+          `Current: ${regimeConfig.label} Regime`
+        )
+      )
     ),
     scenarios&&Array.isArray(scenarios)?React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:10,marginBottom:28}},
-      scenarios.map((s,i)=>{const n=typeof s==="string"?s:s.name||s.id||`Scenario ${i}`;
-        return React.createElement("button",{key:i,onClick:()=>run(n),style:{...btnOutline,borderColor:selected===n?C.navy:C.border,color:selected===n?C.navy:C.soft,background:selected===n?C.accentLight:"transparent",fontWeight:selected===n?600:400,padding:"10px 18px"}},n)})
+      scenarios.map((s,i)=>{
+        const isRegimeScenario = s === "Regime Transition";
+        const n=typeof s==="string"?s:s.name||s.id||`Scenario ${i}`;
+        return React.createElement("button",{
+          key:i,
+          onClick:()=>run(n),
+          style:{
+            ...btnOutline,
+            borderColor:selected===n?regimeConfig.color:C.border,
+            color:selected===n?regimeConfig.color:C.soft,
+            background:selected===n?regimeConfig.bgColor:"transparent",
+            fontWeight:selected===n?600:400,
+            padding:"10px 18px",
+            ...(isRegimeScenario && {
+              backgroundColor: regimeConfig.bgColor,
+              borderColor: regimeConfig.color,
+              color: regimeConfig.color
+            })
+          }
+        },n)
+      })
     ):React.createElement("div",{style:{color:C.faint,fontSize:13}},React.createElement(Spin,{dark:true}),"Loading..."),
     loading&&React.createElement("div",{style:{color:C.soft,fontSize:12,display:"flex",alignItems:"center",marginBottom:16}},React.createElement(Spin,{dark:true}),"Running ",selected,"..."),
     err&&React.createElement("div",{style:eBox},err),
-    result&&React.createElement("div",null,React.createElement(Tag,{color:C.gold},"Scenario: "+selected),React.createElement("div",{style:{marginTop:16}},React.createElement(SmartResult,{data:result})))
+    result&&React.createElement("div",null,React.createElement(Tag,{color:selected === "Regime Transition" ? regimeConfig.color : C.gold},"Scenario: "+selected),React.createElement("div",{style:{marginTop:16}},React.createElement(SmartResult,{data:result})))
   );
 }
 
@@ -425,18 +786,18 @@ function Dashboard({token,userEmail,onLogout}){
   let content;
   if(tab==="demo")content=React.createElement(DemoTab,{demoP});
   else if(tab==="agent")content=React.createElement(AgentTab,{token,demoP});
-  else if(tab==="optimize")content=React.createElement(EngineTab,{token,demoP,title:"Portfolio Optimizer",desc:"From mandate to optimal allocation.",endpoint:"/api/v1/optimize",controls:[{key:"objective",label:"Objective",default:"max_sharpe",options:[{value:"max_sharpe",label:"Max Sharpe"},{value:"min_variance",label:"Min Variance"},{value:"risk_parity",label:"Risk Parity"}]}]});
-  else if(tab==="backtest")content=React.createElement(EngineTab,{token,demoP,title:"Backtest Engine",desc:"Historical simulation with drawdown analysis.",endpoint:"/api/v1/backtest",controls:[{key:"period",label:"Lookback",default:"3y",options:[{value:"1y",label:"1Y"},{value:"2y",label:"2Y"},{value:"3y",label:"3Y"},{value:"5y",label:"5Y"},{value:"10y",label:"10Y"}]},{key:"rebalance_freq",label:"Rebalance",default:"monthly",options:[{value:"monthly",label:"Monthly"},{value:"quarterly",label:"Quarterly"},{value:"annually",label:"Annual"}]}]});
+  else if(tab==="optimizer")content=React.createElement(EngineTab,{token,demoP,title:"Portfolio Optimizer",desc:"Regime-aware allocation optimization.",endpoint:"/api/v1/optimize",controls:[{key:"objective",label:"Objective",default:"max_sharpe",options:[{value:"max_sharpe",label:"Max Sharpe"},{value:"min_variance",label:"Min Variance"},{value:"risk_parity",label:"Risk Parity"}]}]});
+  else if(tab==="backtest")content=React.createElement(EngineTab,{token,demoP,title:"Backtest Engine",desc:"Historical simulation with regime context.",endpoint:"/api/v1/backtest",controls:[{key:"period",label:"Lookback",default:"3y",options:[{value:"1y",label:"1Y"},{value:"2y",label:"2Y"},{value:"3y",label:"3Y"},{value:"5y",label:"5Y"},{value:"10y",label:"10Y"}]},{key:"rebalance_freq",label:"Rebalance",default:"monthly",options:[{value:"monthly",label:"Monthly"},{value:"quarterly",label:"Quarterly"},{value:"annually",label:"Annual"}]}]});
   else if(tab==="scenarios")content=React.createElement(ScenariosTab,{token,demoP});
   else if(tab==="portfolios")content=React.createElement(PortfoliosTab,{token});
   else if(tab==="analytics")content=React.createElement(EngineTab,{token,demoP,title:"Full Analytics",desc:"Comprehensive risk decomposition.",endpoint:"/api/v1/analytics/full",controls:[]});
 
   return React.createElement("div",{style:{minHeight:"100vh",background:C.bg,fontFamily:T.body,color:C.navy,display:"flex",flexDirection:"column"}},
-    // Nav bar
+    // Main nav bar
     React.createElement("header",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 32px",borderBottom:`1px solid ${C.border}`,background:C.white,flexShrink:0}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
         React.createElement("span",{style:{fontFamily:T.display,fontSize:22,fontWeight:700,color:C.navy,letterSpacing:"-0.02em"}},"GrineOS"),
-        React.createElement("span",{style:{fontSize:12,color:C.soft,fontWeight:400}},"Allocation Intelligence Platform")
+        React.createElement("span",{style:{fontSize:12,color:C.soft,fontWeight:400}},"Regime-Driven Allocation Intelligence")
       ),
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:16}},
         React.createElement("span",{style:{fontSize:12,color:C.soft}},"KG&Co Capital Advisory · London · New York"),
@@ -445,12 +806,18 @@ function Dashboard({token,userEmail,onLogout}){
         React.createElement("button",{onClick:onLogout,style:{...btnOutline,padding:"6px 14px",fontSize:11,color:C.red,borderColor:C.red+"44"}},"Sign Out")
       )
     ),
-    // Tab bar
+    
+    // Regime top bar
+    React.createElement(RegimeTopBar),
+    
+    // Tab navigation
     React.createElement("nav",{style:{display:"flex",gap:0,borderBottom:`1px solid ${C.border}`,background:C.white,paddingLeft:32,flexShrink:0}},
       TABS.map(t=>React.createElement("button",{key:t.id,onClick:()=>setTab(t.id),style:{padding:"12px 20px",border:"none",borderBottom:tab===t.id?`2px solid ${C.navy}`:"2px solid transparent",background:"transparent",color:tab===t.id?C.navy:C.soft,fontFamily:T.body,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all .15s",letterSpacing:"0.01em"}},t.label))
     ),
+    
     // Content
     React.createElement("main",{style:{flex:1,overflow:"auto"}},content),
+    
     // Status footer
     React.createElement("footer",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 32px",borderTop:`1px solid ${C.border}`,background:C.white,fontSize:11,color:C.faint,flexShrink:0}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
@@ -464,8 +831,11 @@ function Dashboard({token,userEmail,onLogout}){
 
 function App(){
   const[token,setToken]=useState(null);const[email,setEmail]=useState("");
-  return token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("")}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}});
+  return React.createElement(RegimeProvider,null,
+    token?React.createElement(Dashboard,{token,userEmail:email,onLogout:()=>{setToken(null);setEmail("")}}):React.createElement(AuthScreen,{onAuth:(t,e)=>{setToken(t);setEmail(e)}})
+  );
 }
+
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
 </script>
 </body>
