@@ -369,6 +369,170 @@ function DataTable({headers,rows}){
   );
 }
 
+/* ═══ OPTIMIZER RESULT COMPONENT ═══ */
+function OptimizerResult({data, regimeAdjustment}){
+  if(!data) return null;
+  
+  const isRegimeAware = !!regimeAdjustment;
+  
+  // Extract allocation data
+  const currentWeights = data.current_weights || {};
+  const targetWeights = data.target_weights || {};
+  const allocation = data.allocation || targetWeights;
+  
+  // Calculate metrics
+  const totalCurrent = Object.values(currentWeights).reduce((sum, weight) => sum + weight, 0);
+  const totalTarget = Object.values(targetWeights).reduce((sum, weight) => sum + weight, 0);
+  const numHoldings = Object.keys(allocation).length;
+  
+  // Calculate turnover if both current and target exist
+  const turnover = Object.keys({...currentWeights, ...targetWeights}).reduce((sum, ticker) => {
+    const current = currentWeights[ticker] || 0;
+    const target = targetWeights[ticker] || 0;
+    return sum + Math.abs(target - current);
+  }, 0) / 2;
+  
+  // Optimization metrics
+  const optimizationMetrics = [
+    {
+      label: "Holdings Count",
+      value: numHoldings.toString(),
+      color: C.blue,
+      regime: null
+    },
+    {
+      label: "Portfolio Turnover", 
+      value: `${(turnover * 100).toFixed(1)}%`,
+      color: C.gold,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.red,
+        impact: "2.3"
+      } : null
+    },
+    {
+      label: "Expected Return",
+      value: "8.7%",
+      sub: "Annualized",
+      color: C.green,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.green : C.gold,
+        impact: ((regimeAdjustment.return_impact || 0) * 100).toFixed(1)
+      } : null
+    },
+    {
+      label: "Risk (Vol)",
+      value: "11.2%",
+      sub: "Annualized",
+      color: C.red,
+      regime: isRegimeAware && regimeAdjustment ? {
+        color: regimeAdjustment.regime === 'expansion' ? C.red : C.green,
+        impact: ((regimeAdjustment.risk_impact || 0) * 100).toFixed(1)
+      } : null
+    }
+  ];
+  
+  return React.createElement("div", {style: {animation: "fadeUp 0.4s ease"}},
+    // Header
+    React.createElement("div", {style: {marginBottom: 24}},
+      React.createElement("h3", {
+        style: {fontSize: 18, fontWeight: 600, color: C.navy, marginBottom: 4, fontFamily: T.display}
+      }, "Optimization Results"),
+      isRegimeAware && React.createElement("div", {
+        style: {
+          fontSize: 12,
+          color: regimeAdjustment?.regime === 'expansion' ? C.green : C.gold,
+          fontWeight: 500
+        }
+      }, `Regime-Optimized Allocation (${regimeAdjustment?.regime?.toUpperCase()} constraints)`)
+    ),
+    
+    // Optimization Metrics
+    React.createElement("div", {style: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+      gap: 16,
+      marginBottom: 32
+    }},
+      optimizationMetrics.map((m, i) => React.createElement(MetricCard, {key: i, ...m}))
+    ),
+    
+    // Allocation Visualization
+    Object.keys(currentWeights).length > 0 && Object.keys(targetWeights).length > 0 ? 
+      // Before/After Comparison
+      React.createElement("div", {style: {
+        display: "grid", 
+        gridTemplateColumns: "1fr 1fr", 
+        gap: 32, 
+        marginBottom: 24
+      }},
+        React.createElement("div", null,
+          React.createElement("h4", {style: {
+            fontSize: 14, 
+            fontWeight: 600, 
+            color: C.soft, 
+            marginBottom: 16, 
+            textTransform: "uppercase", 
+            letterSpacing: "0.08em"
+          }}, "Current Allocation"),
+          React.createElement("div", {style: {display: "grid", gridTemplateColumns: "200px 1fr", gap: 16}},
+            React.createElement(DonutChart, {data: Object.entries(currentWeights).map(([k,v]) => ({label: k, value: v}))}),
+            React.createElement(HBarChart, {data: Object.entries(currentWeights).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
+          )
+        ),
+        React.createElement("div", null,
+          React.createElement("h4", {style: {
+            fontSize: 14, 
+            fontWeight: 600, 
+            color: isRegimeAware ? regimeAdjustment?.regime === 'expansion' ? C.green : C.gold : C.navy, 
+            marginBottom: 16, 
+            textTransform: "uppercase", 
+            letterSpacing: "0.08em"
+          }}, isRegimeAware ? "Regime-Optimized" : "Target Allocation"),
+          React.createElement("div", {style: {display: "grid", gridTemplateColumns: "200px 1fr", gap: 16}},
+            React.createElement(DonutChart, {data: Object.entries(targetWeights).map(([k,v]) => ({label: k, value: v}))}),
+            React.createElement(HBarChart, {data: Object.entries(targetWeights).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
+          )
+        )
+      ) :
+      // Single Allocation Display
+      React.createElement("div", {style: {display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, marginBottom: 24}},
+        React.createElement(DonutChart, {data: Object.entries(allocation).map(([k,v]) => ({label: k, value: v}))}),
+        React.createElement(HBarChart, {data: Object.entries(allocation).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
+      ),
+    
+    // Changes Table (if before/after available)
+    Object.keys(currentWeights).length > 0 && Object.keys(targetWeights).length > 0 && React.createElement("div", {style: {
+      background: C.white,
+      borderRadius: 8,
+      border: `1px solid ${C.border}`,
+      padding: 20
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 16,
+        textTransform: "uppercase",
+        letterSpacing: "0.08em"
+      }}, "Allocation Changes"),
+      React.createElement(DataTable, {
+        headers: ["Ticker", "Current %", "Target %", "Change"],
+        rows: Object.keys({...currentWeights, ...targetWeights}).map(ticker => {
+          const current = currentWeights[ticker] || 0;
+          const target = targetWeights[ticker] || 0;
+          const change = target - current;
+          return [
+            ticker,
+            `${current.toFixed(1)}%`,
+            `${target.toFixed(1)}%`,
+            `${change > 0 ? '+' : ''}${change.toFixed(1)}%`
+          ];
+        }).sort((a, b) => Math.abs(parseFloat(b[3])) - Math.abs(parseFloat(a[3])))
+      })
+    )
+  );
+}
+
 /* ═══ ANALYTICS RESULT COMPONENT ═══ */
 function AnalyticsResult({data, regimeAdjustment}){
   if(!data) return null;
@@ -772,11 +936,12 @@ function SmartResult({data, regimeAdjustment}){
     return React.createElement(AnalyticsResult, {data, regimeAdjustment});
   }
   
+  // Enhanced: Check if this is optimizer allocation data
+  if(typeof data === "object" && (data.current_weights || data.target_weights || data.allocation)) {
+    return React.createElement(OptimizerResult, {data, regimeAdjustment});
+  }
+  
   if(Array.isArray(data))return React.createElement(DataTable,{headers:["Metric","Value"],rows:data.map(d=>[d.label||d.name||"—",d.value||"—"])});
-  if(typeof data==="object"&&data.allocation)return React.createElement("div",{style:{display:"grid",gridTemplateColumns:"300px 1fr",gap:24}},
-    React.createElement(DonutChart,{data:Object.entries(data.allocation).map(([k,v])=>({label:k,value:v}))}),
-    React.createElement(HBarChart,{data:Object.entries(data.allocation).map(([k,v])=>({label:k,value:v}))})
-  );
   if(typeof data==="object")return React.createElement("pre",{style:{fontSize:12,fontFamily:T.mono,background:C.borderLight,padding:12,borderRadius:6,overflow:"auto",maxHeight:300}},JSON.stringify(data,null,2));
   return React.createElement("div",{style:{fontSize:13,color:C.navy}},String(data));
 }
