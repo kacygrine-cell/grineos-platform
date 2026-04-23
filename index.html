@@ -128,76 +128,132 @@ function RegimeTopBar() {
     momentum: regime.drivers.momentum > 0 ? '#16a34a' : '#dc2626',
     liquidity: regime.drivers.liquidity > 0 ? '#16a34a' : '#dc2626'
   };
-  
-  return (
-    <div style={{
+
+  // Regime transition probabilities (mock data)
+  const transitions = {
+    expansion: 0.73,
+    protection: 0.12,
+    transition: 0.15
+  };
+
+  return React.createElement("div", {style: {
+    background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyLight} 100%)`,
+    color: '#fff',
+    borderBottom: `1px solid ${C.navyLight}`,
+    position: 'sticky',
+    top: 0,
+    zIndex: 50
+  }},
+    // Main regime bar (48px)
+    React.createElement("div", {style: {
       height: 48,
-      background: `linear-gradient(135deg, ${C.navy} 0%, ${C.navyLight} 100%)`,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 32px',
-      color: '#fff',
-      borderBottom: `1px solid ${C.navyLight}`,
-      position: 'sticky',
-      top: 0,
-      zIndex: 50
-    }}>
-      {/* Left side - Regime Status */}
-      <div style={{display: 'flex', alignItems: 'center', gap: 16}}>
-        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-          <div 
-            className="regime-indicator"
-            style={{
+      padding: '0 32px'
+    }},
+      // Left side - Current Regime Status
+      React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 16}},
+        React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 8}},
+          React.createElement("div", {
+            className: "regime-indicator",
+            style: {
               width: 8,
               height: 8,
               borderRadius: '50%',
               backgroundColor: regimeConfig.color
-            }}
-          />
-          <span style={{
+            }
+          }),
+          React.createElement("span", {style: {
             fontFamily: T.display,
             fontSize: 16,
             fontWeight: 600,
             letterSpacing: '0.02em'
-          }}>
-            {regimeConfig.label}
-          </span>
-        </div>
+          }}, regimeConfig.label)
+        ),
         
-        <span style={{fontSize: 12, opacity: 0.8}}>
-          {Math.round(regime.confidence)}% confidence
-        </span>
+        React.createElement("span", {style: {fontSize: 12, opacity: 0.8}},
+          `${Math.round(regime.confidence)}% confidence`
+        ),
         
-        <div style={{
+        React.createElement("div", {style: {
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 12,
           fontFamily: T.mono,
           fontSize: 10
-        }}>
-          <span style={{color: driverColors.volatility}}>
-            Vol{driverSymbols.volatility}
-          </span>
-          <span style={{color: driverColors.momentum}}>
-            Mom{driverSymbols.momentum}
-          </span>
-          <span style={{color: driverColors.liquidity}}>
-            Liq{driverSymbols.liquidity}
-          </span>
-        </div>
-      </div>
+        }},
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 4}},
+            React.createElement("span", {style: {opacity: 0.6}}, "VOL"),
+            React.createElement("span", {style: {color: driverColors.volatility, fontWeight: 600}},
+              driverSymbols.volatility
+            ),
+            React.createElement("span", {style: {opacity: 0.8, fontSize: 9}},
+              `${Math.abs(regime.drivers.volatility).toFixed(1)}σ`
+            )
+          ),
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 4}},
+            React.createElement("span", {style: {opacity: 0.6}}, "MOM"),
+            React.createElement("span", {style: {color: driverColors.momentum, fontWeight: 600}},
+              driverSymbols.momentum
+            ),
+            React.createElement("span", {style: {opacity: 0.8, fontSize: 9}},
+              `${Math.abs(regime.drivers.momentum).toFixed(1)}σ`
+            )
+          ),
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 4}},
+            React.createElement("span", {style: {opacity: 0.6}}, "LIQ"),
+            React.createElement("span", {style: {color: driverColors.liquidity, fontWeight: 600}},
+              driverSymbols.liquidity
+            ),
+            React.createElement("span", {style: {opacity: 0.8, fontSize: 9}},
+              `${Math.abs(regime.drivers.liquidity).toFixed(1)}σ`
+            )
+          )
+        )
+      ),
       
-      {/* Right side - Controls */}
-      <div style={{display: 'flex', alignItems: 'center', gap: 16}}>
-        <div style={{
+      // Center - Regime Transition Probabilities
+      React.createElement("div", {style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        fontSize: 11,
+        fontFamily: T.mono
+      }},
+        React.createElement("span", {style: {opacity: 0.6, fontSize: 10, textTransform: 'uppercase'}}, "Next 30D"),
+        Object.entries(transitions).map(([r, prob]) => 
+          React.createElement("div", {key: r, style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            borderRadius: 3,
+            backgroundColor: r === regime.current ? 'rgba(255,255,255,0.15)' : 'transparent'
+          }},
+            React.createElement("span", {style: {
+              fontSize: 9,
+              textTransform: 'uppercase',
+              opacity: 0.8
+            }}, r.slice(0,3)),
+            React.createElement("span", {style: {
+              fontWeight: 600,
+              color: REGIME_PARAMETERS[r].color
+            }}, `${Math.round(prob * 100)}%`)
+          )
+        )
+      ),
+      
+      // Right side - Controls  
+      React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 16}},
+        React.createElement("div", {style: {
           display: 'flex',
           backgroundColor: C.navyLight,
           borderRadius: 4,
           overflow: 'hidden'
-        }}>
-          <button 
-            style={{
+        }},
+          React.createElement("button", {
+            style: {
               padding: '6px 12px',
               fontSize: 11,
               fontWeight: 600,
@@ -206,13 +262,11 @@ function RegimeTopBar() {
               backgroundColor: regime.mode === 'auto' ? '#fff' : 'transparent',
               color: regime.mode === 'auto' ? C.navy : '#fff',
               transition: 'all 0.2s'
-            }}
-            onClick={() => setRegime({...regime, mode: 'auto'})}
-          >
-            AUTO
-          </button>
-          <button 
-            style={{
+            },
+            onClick: () => setRegime({...regime, mode: 'auto'})
+          }, "AUTO"),
+          React.createElement("button", {
+            style: {
               padding: '6px 12px',
               fontSize: 11,
               fontWeight: 600,
@@ -221,17 +275,15 @@ function RegimeTopBar() {
               backgroundColor: regime.mode === 'manual' ? '#fff' : 'transparent',
               color: regime.mode === 'manual' ? C.navy : '#fff',
               transition: 'all 0.2s'
-            }}
-            onClick={() => setRegime({...regime, mode: 'manual'})}
-          >
-            MANUAL
-          </button>
-        </div>
+            },
+            onClick: () => setRegime({...regime, mode: 'manual'})
+          }, "MANUAL")
+        ),
         
-        <select 
-          value={regime.timeHorizon}
-          onChange={(e) => setRegime({...regime, timeHorizon: e.target.value})}
-          style={{
+        React.createElement("select", {
+          value: regime.timeHorizon,
+          onChange: (e) => setRegime({...regime, timeHorizon: e.target.value}),
+          style: {
             backgroundColor: C.navyLight,
             border: `1px solid ${C.navyLight}`,
             borderRadius: 4,
@@ -239,15 +291,363 @@ function RegimeTopBar() {
             padding: '6px 10px',
             color: '#fff',
             cursor: 'pointer'
-          }}
-        >
-          <option value="1M">1M</option>
-          <option value="3M">3M</option>
-          <option value="6M">6M</option>
-          <option value="1Y">1Y</option>
-        </select>
-      </div>
-    </div>
+          }
+        },
+          React.createElement("option", {value: "1M"}, "1M"),
+          React.createElement("option", {value: "3M"}, "3M"),
+          React.createElement("option", {value: "6M"}, "6M"),
+          React.createElement("option", {value: "1Y"}, "1Y")
+        )
+      )
+    ),
+
+    // Expanded regime intelligence panel (collapsible)
+    React.createElement("div", {style: {
+      borderTop: `1px solid rgba(255,255,255,0.1)`,
+      background: `linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)`,
+      padding: '16px 32px',
+      fontSize: 12
+    }},
+      React.createElement("div", {style: {display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 24}},
+        // Market Environment
+        React.createElement("div", null,
+          React.createElement("div", {style: {
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            opacity: 0.6,
+            marginBottom: 8
+          }}, "Market Environment"),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "VIX: "),
+            React.createElement("span", {style: {color: '#16a34a', fontWeight: 600}}, "14.2 "),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}}, "(-2.1)")
+          ),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "MOVE: "),
+            React.createElement("span", {style: {color: '#16a34a', fontWeight: 600}}, "89.3 "),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}}, "(-1.7)")
+          ),
+          React.createElement("div", null,
+            React.createElement("span", {style: {opacity: 0.8}}, "Credit: "),
+            React.createElement("span", {style: {color: '#16a34a', fontWeight: 600}}, "Tight "),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}}, "(HYG +0.8%)")
+          )
+        ),
+
+        // Regime Drivers Detail
+        React.createElement("div", null,
+          React.createElement("div", {style: {
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            opacity: 0.6,
+            marginBottom: 8
+          }}, "Signal Strength"),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Volatility: "),
+            React.createElement("span", {style: {color: driverColors.volatility, fontWeight: 600}},
+              `${regime.drivers.volatility > 0 ? 'High' : 'Low'} `
+            ),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}},
+              `(${regime.drivers.volatility.toFixed(1)}σ)`
+            )
+          ),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Momentum: "),
+            React.createElement("span", {style: {color: driverColors.momentum, fontWeight: 600}},
+              `${regime.drivers.momentum > 0 ? 'Positive' : 'Negative'} `
+            ),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}},
+              `(${regime.drivers.momentum.toFixed(1)}σ)`
+            )
+          ),
+          React.createElement("div", null,
+            React.createElement("span", {style: {opacity: 0.8}}, "Liquidity: "),
+            React.createElement("span", {style: {color: driverColors.liquidity, fontWeight: 600}},
+              `${regime.drivers.liquidity > 0 ? 'Abundant' : 'Tight'} `
+            ),
+            React.createElement("span", {style: {opacity: 0.6, fontSize: 10}},
+              `(${regime.drivers.liquidity.toFixed(1)}σ)`
+            )
+          )
+        ),
+
+        // Historical Context
+        React.createElement("div", null,
+          React.createElement("div", {style: {
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            opacity: 0.6,
+            marginBottom: 8
+          }}, "Historical Context"),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Duration: "),
+            React.createElement("span", {style: {fontWeight: 600}}, "127 days")
+          ),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Avg Length: "),
+            React.createElement("span", {style: {fontWeight: 600}}, "184 days")
+          ),
+          React.createElement("div", null,
+            React.createElement("span", {style: {opacity: 0.8}}, "Last Change: "),
+            React.createElement("span", {style: {fontWeight: 600}}, "Oct 15, 2025")
+          )
+        ),
+
+        // Regime Performance
+        React.createElement("div", null,
+          React.createElement("div", {style: {
+            fontSize: 10,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            opacity: 0.6,
+            marginBottom: 8
+          }}, "Regime Performance"),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Equity: "),
+            React.createElement("span", {style: {color: '#16a34a', fontWeight: 600}}, "+12.4%")
+          ),
+          React.createElement("div", {style: {marginBottom: 4}},
+            React.createElement("span", {style: {opacity: 0.8}}, "Bonds: "),
+            React.createElement("span", {style: {color: '#16a34a', fontWeight: 600}}, "+3.2%")
+          ),
+          React.createElement("div", null,
+            React.createElement("span", {style: {opacity: 0.8}}, "Commodities: "),
+            React.createElement("span", {style: {color: '#dc2626', fontWeight: 600}}, "-2.1%")
+          )
+        )
+      )
+    )
+  );
+}
+
+// Enhanced Regime Analysis Sidebar
+function RegimeAnalysisSidebar({isOpen, onToggle}) {
+  const { regime, regimeConfig } = useRegime();
+  
+  if (!isOpen) return null;
+  
+  return React.createElement("div", {style: {
+    position: 'fixed',
+    right: 0,
+    top: 0,
+    width: 400,
+    height: '100vh',
+    background: C.white,
+    borderLeft: `2px solid ${regimeConfig.color}`,
+    boxShadow: '-4px 0 12px rgba(0,0,0,0.1)',
+    zIndex: 100,
+    overflow: 'auto',
+    padding: 24
+  }},
+    // Header
+    React.createElement("div", {style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 24,
+      paddingBottom: 16,
+      borderBottom: `1px solid ${C.border}`
+    }},
+      React.createElement("h3", {style: {
+        fontFamily: T.display,
+        fontSize: 20,
+        fontWeight: 600,
+        color: C.navy
+      }}, "Regime Intelligence"),
+      React.createElement("button", {
+        onClick: onToggle,
+        style: {
+          background: 'none',
+          border: 'none',
+          fontSize: 18,
+          color: C.soft,
+          cursor: 'pointer',
+          padding: 4
+        }
+      }, "×")
+    ),
+
+    // Current Regime Deep Dive
+    React.createElement("div", {style: {
+      background: regimeConfig.bgColor,
+      border: `1px solid ${regimeConfig.color}33`,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 24
+    }},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: regimeConfig.color,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em'
+      }}, `${regimeConfig.label} Regime Analysis`),
+      React.createElement("p", {style: {
+        fontSize: 13,
+        lineHeight: 1.5,
+        color: C.navy,
+        marginBottom: 12
+      }}, regimeConfig.description),
+      React.createElement("div", {style: {fontSize: 12, color: C.soft}},
+        `Confidence: ${Math.round(regime.confidence)}% • Duration: 127 days • Avg Duration: 184 days`
+      )
+    ),
+
+    // Market Environment Deep Dive
+    React.createElement("div", {style: {marginBottom: 24}},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em'
+      }}, "Market Environment"),
+      React.createElement("div", {style: {display: 'grid', gap: 12}},
+        React.createElement("div", {style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '8px 12px',
+          background: C.borderLight,
+          borderRadius: 6
+        }},
+          React.createElement("span", {style: {fontSize: 12, color: C.soft}}, "VIX (Fear Index)"),
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 6}},
+            React.createElement("span", {style: {fontWeight: 600, color: C.green}}, "14.2"),
+            React.createElement("span", {style: {fontSize: 11, color: C.green}}, "-2.1 ▼")
+          )
+        ),
+        React.createElement("div", {style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '8px 12px',
+          background: C.borderLight,
+          borderRadius: 6
+        }},
+          React.createElement("span", {style: {fontSize: 12, color: C.soft}}, "MOVE (Bond Vol)"),
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 6}},
+            React.createElement("span", {style: {fontWeight: 600, color: C.green}}, "89.3"),
+            React.createElement("span", {style: {fontSize: 11, color: C.green}}, "-1.7 ▼")
+          )
+        ),
+        React.createElement("div", {style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '8px 12px',
+          background: C.borderLight,
+          borderRadius: 6
+        }},
+          React.createElement("span", {style: {fontSize: 12, color: C.soft}}, "Credit Spreads"),
+          React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 6}},
+            React.createElement("span", {style: {fontWeight: 600, color: C.green}}, "Tight"),
+            React.createElement("span", {style: {fontSize: 11, color: C.green}}, "HYG +0.8% ▲")
+          )
+        )
+      )
+    ),
+
+    // Regime Transition Matrix
+    React.createElement("div", {style: {marginBottom: 24}},
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em'
+      }}, "Transition Probabilities (30D)"),
+      React.createElement("div", {style: {display: 'grid', gap: 8}},
+        Object.entries({expansion: 0.73, protection: 0.12, transition: 0.15}).map(([r, prob]) =>
+          React.createElement("div", {key: r, style: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '8px 12px',
+            background: r === regime.current ? REGIME_PARAMETERS[r].bgColor : C.borderLight,
+            border: r === regime.current ? `1px solid ${REGIME_PARAMETERS[r].color}33` : 'none',
+            borderRadius: 6
+          }},
+            React.createElement("span", {style: {
+              fontSize: 12,
+              color: r === regime.current ? REGIME_PARAMETERS[r].color : C.soft,
+              textTransform: 'capitalize'
+            }}, r),
+            React.createElement("div", {style: {display: 'flex', alignItems: 'center', gap: 8}},
+              React.createElement("span", {style: {
+                fontWeight: 600,
+                color: REGIME_PARAMETERS[r].color
+              }}, `${Math.round(prob * 100)}%`),
+              React.createElement("div", {style: {
+                width: 60,
+                height: 4,
+                background: C.borderLight,
+                borderRadius: 2,
+                overflow: 'hidden'
+              }},
+                React.createElement("div", {style: {
+                  width: `${prob * 100}%`,
+                  height: '100%',
+                  background: REGIME_PARAMETERS[r].color,
+                  transition: 'width 0.3s ease'
+                }})
+              )
+            )
+          )
+        )
+      )
+    ),
+
+    // Historical Performance by Regime
+    React.createElement("div", null,
+      React.createElement("h4", {style: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: C.navy,
+        marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em'
+      }}, "Asset Performance by Regime"),
+      React.createElement("div", {style: {fontSize: 11, color: C.soft, marginBottom: 8}}, "Last 24 months average"),
+      React.createElement("div", {style: {display: 'grid', gap: 8}},
+        [
+          {asset: 'US Equities', expansion: 12.4, protection: -3.2, transition: 4.1},
+          {asset: 'Bonds', expansion: 3.2, protection: 8.7, transition: 2.9},
+          {asset: 'Commodities', expansion: -2.1, protection: 6.3, transition: 8.2},
+          {asset: 'REITs', expansion: 15.7, protection: -8.9, transition: 1.4}
+        ].map((perf, i) =>
+          React.createElement("div", {key: i, style: {
+            padding: '8px 12px',
+            background: C.borderLight,
+            borderRadius: 6
+          }},
+            React.createElement("div", {style: {
+              fontSize: 12,
+              fontWeight: 600,
+              color: C.navy,
+              marginBottom: 4
+            }}, perf.asset),
+            React.createElement("div", {style: {display: 'flex', gap: 8, fontSize: 10}},
+              React.createElement("span", {style: {
+                color: perf.expansion > 0 ? C.green : C.red
+              }}, `EXP: ${perf.expansion > 0 ? '+' : ''}${perf.expansion}%`),
+              React.createElement("span", {style: {
+                color: perf.protection > 0 ? C.green : C.red
+              }}, `PROT: ${perf.protection > 0 ? '+' : ''}${perf.protection}%`),
+              React.createElement("span", {style: {
+                color: perf.transition > 0 ? C.green : C.red
+              }}, `TRANS: ${perf.transition > 0 ? '+' : ''}${perf.transition}%`)
+            )
+          )
+        )
+      )
+    )
   );
 }
 
@@ -1349,6 +1749,8 @@ function PortfoliosTab({token}){
 /* ═══ DASHBOARD ═══ */
 function Dashboard({token,userEmail,onLogout}){
   const[tab,setTab]=useState("demo");const[health,setHealth]=useState(null);const[demoP,setDemoP]=useState(null);
+  const[regimeSidebarOpen, setRegimeSidebarOpen] = useState(false);
+  
   useEffect(()=>{
     fetch(`${API}/health`).then(r=>r.json()).then(setHealth).catch(()=>setHealth({status:"error"}));
     apiFetch("/api/v1/demo/portfolio",token).then(setDemoP).catch(()=>{});
@@ -1371,6 +1773,23 @@ function Dashboard({token,userEmail,onLogout}){
         React.createElement("span",{style:{fontSize:12,color:C.soft,fontWeight:400}},"Regime-Driven Allocation Intelligence")
       ),
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:16}},
+        // Regime Intelligence Button
+        React.createElement("button", {
+          onClick: () => setRegimeSidebarOpen(!regimeSidebarOpen),
+          style: {
+            ...btnOutline,
+            padding: "6px 14px",
+            fontSize: 11,
+            color: C.navy,
+            borderColor: C.navy + "44",
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }
+        },
+          React.createElement("span", {style: {fontSize: 12}}, "🧠"),
+          "Regime Intel"
+        ),
         React.createElement("span",{style:{fontSize:12,color:C.soft}},"KG&Co Capital Advisory · London · New York"),
         React.createElement("div",{style:{width:1,height:16,background:C.border}}),
         React.createElement("span",{style:{fontSize:12,color:C.faint}},userEmail),
@@ -1378,7 +1797,7 @@ function Dashboard({token,userEmail,onLogout}){
       )
     ),
     
-    // Regime top bar
+    // Enhanced Regime top bar with comprehensive intelligence
     React.createElement(RegimeTopBar),
     
     // Tab navigation
@@ -1387,13 +1806,24 @@ function Dashboard({token,userEmail,onLogout}){
     ),
     
     // Content
-    React.createElement("main",{style:{flex:1,overflow:"auto"}},content),
+    React.createElement("main",{style:{flex:1,overflow:"auto",position:'relative'}},content),
+    
+    // Regime Analysis Sidebar
+    React.createElement(RegimeAnalysisSidebar, {
+      isOpen: regimeSidebarOpen,
+      onToggle: () => setRegimeSidebarOpen(!regimeSidebarOpen)
+    }),
     
     // Status footer
     React.createElement("footer",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 32px",borderTop:`1px solid ${C.border}`,background:C.white,fontSize:11,color:C.faint,flexShrink:0}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
         React.createElement("div",{style:{display:"flex",alignItems:"center"}},React.createElement(Dot,{ok:health?.status==="healthy"||health?.status==="ok"}),"API ",React.createElement(Tag,{color:health?.status==="healthy"||health?.status==="ok"?C.green:C.red},health?.status||"...")),
-        health?.agent&&React.createElement("div",{style:{display:"flex",alignItems:"center"}},React.createElement(Dot,{ok:true}),"Agent Active")
+        health?.agent&&React.createElement("div",{style:{display:"flex",alignItems:"center"}},React.createElement(Dot,{ok:true}),"Agent Active"),
+        React.createElement("div",{style:{display:"flex",alignItems:"center"}},
+          React.createElement(Dot,{ok:true}),
+          "Regime Engine ",
+          React.createElement(Tag,{color:C.blue},"v2.1.0")
+        )
       ),
       React.createElement("div",null,"Grine Technologies Ltd · A KG&Co Company")
     )
