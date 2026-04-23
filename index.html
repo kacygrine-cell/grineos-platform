@@ -755,12 +755,51 @@ const Dot=({ok})=>React.createElement("span",{style:{display:"inline-block",widt
 const Tag=({children,color=C.navy})=>React.createElement("span",{style:{display:"inline-block",padding:"3px 10px",borderRadius:4,fontSize:10,fontWeight:600,letterSpacing:"0.06em",background:`${color}10`,color,fontFamily:T.mono,textTransform:"uppercase"}},children);
 
 /* ═══ CHARTS ═══ */
-function DonutChart({data,size=180,thickness=28}){
-  const total=data.reduce((s,d)=>s+d.value,0);
-  if(total===0)return null;
+function DonutChart({data,size=180,thickness=28,totalValue}){
+  // Handle different data structures - portfolio holdings vs optimizer results
+  let chartData, displayTotal;
+  
+  if (Array.isArray(data)) {
+    // Regular portfolio holdings format
+    chartData = data;
+    displayTotal = totalValue || data.reduce((s,d)=>s+(d.value||0),0);
+  } else if (data && typeof data === 'object') {
+    // Optimizer result format - convert allocation percentages to chart data
+    chartData = Object.entries(data).map(([ticker, percentage]) => ({
+      label: ticker,
+      value: percentage * (totalValue || 1000000) / 100 // Convert percentage to dollar value
+    }));
+    displayTotal = totalValue || chartData.reduce((s,d)=>s+d.value,0);
+  } else {
+    return React.createElement("div", {style: {
+      width: size, 
+      height: size, 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      background: C.borderLight,
+      borderRadius: '50%',
+      color: C.soft,
+      fontSize: 12
+    }}, "No data");
+  }
+  
+  const total = displayTotal;
+  if(total===0)return React.createElement("div", {style: {
+    width: size, 
+    height: size, 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    background: C.borderLight,
+    borderRadius: '50%',
+    color: C.soft,
+    fontSize: 12
+  }}, "No value");
+  
   const cx=size/2,cy=size/2,r=(size-thickness)/2;
   let cum=-90;
-  const paths=data.map((d,i)=>{
+  const paths=chartData.map((d,i)=>{
     const pct=d.value/total,angle=pct*360,start=cum;cum+=angle;
     const sr=(start*Math.PI)/180,er=(cum*Math.PI)/180;
     const x1=cx+r*Math.cos(sr),y1=cy+r*Math.sin(sr),x2=cx+r*Math.cos(er),y2=cy+r*Math.sin(er);
@@ -1588,7 +1627,12 @@ function LearnTab() {
 
 /* ═══ OPTIMIZER RESULT COMPONENT ═══ */
 function OptimizerResult({data, regimeAdjustment}){
+  const { getActivePortfolio } = usePortfolio();
+  
   if(!data) return null;
+  
+  // Get portfolio value from context
+  const portfolioValue = getActivePortfolio()?.totalValue || 2000000;
   
   const isRegimeAware = !!regimeAdjustment;
   
@@ -1692,7 +1736,13 @@ function OptimizerResult({data, regimeAdjustment}){
             letterSpacing: "0.08em"
           }}, "Current Allocation"),
           React.createElement("div", {style: {display: "grid", gridTemplateColumns: "200px 1fr", gap: 16}},
-            React.createElement(DonutChart, {data: Object.entries(currentWeights).map(([k,v]) => ({label: k, value: v}))}),
+            React.createElement(DonutChart, {
+              data: Object.entries(currentWeights).map(([k,v]) => ({
+                label: k, 
+                value: (v / 100) * portfolioValue // Convert percentage to dollar value
+              })),
+              totalValue: portfolioValue
+            }),
             React.createElement(HBarChart, {data: Object.entries(currentWeights).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
           )
         ),
@@ -1706,14 +1756,26 @@ function OptimizerResult({data, regimeAdjustment}){
             letterSpacing: "0.08em"
           }}, isRegimeAware ? "Regime-Optimized" : "Target Allocation"),
           React.createElement("div", {style: {display: "grid", gridTemplateColumns: "200px 1fr", gap: 16}},
-            React.createElement(DonutChart, {data: Object.entries(targetWeights).map(([k,v]) => ({label: k, value: v}))}),
+            React.createElement(DonutChart, {
+              data: Object.entries(targetWeights).map(([k,v]) => ({
+                label: k, 
+                value: (v / 100) * portfolioValue // Convert percentage to dollar value
+              })),
+              totalValue: portfolioValue
+            }),
             React.createElement(HBarChart, {data: Object.entries(targetWeights).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
           )
         )
       ) :
       // Single Allocation Display
       React.createElement("div", {style: {display: "grid", gridTemplateColumns: "300px 1fr", gap: 24, marginBottom: 24}},
-        React.createElement(DonutChart, {data: Object.entries(allocation).map(([k,v]) => ({label: k, value: v}))}),
+        React.createElement(DonutChart, {
+          data: Object.entries(allocation).map(([k,v]) => ({
+            label: k, 
+            value: (v / 100) * portfolioValue // Convert percentage to dollar value
+          })),
+          totalValue: portfolioValue
+        }),
         React.createElement(HBarChart, {data: Object.entries(allocation).map(([k,v]) => ({label: k, value: v, display: `${v.toFixed(1)}%`}))})
       ),
     
@@ -2970,7 +3032,10 @@ function DemoTab({demoP}){
     React.createElement("div",{style:{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}},
       React.createElement("div",null,
         React.createElement("h3",{style:{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}},isRegimeActive ? "Regime-Adjusted Allocation" : "Asset Class Breakdown"),
-        processedHoldings.length > 0 && React.createElement(DonutChart,{data:processedHoldings.map(h=>({label:h.ticker,value:h.value}))}),
+        processedHoldings.length > 0 && React.createElement(DonutChart,{
+          data:processedHoldings.map(h=>({label:h.ticker,value:h.value})),
+          totalValue: activePortfolio.totalValue
+        }),
         // Add news widget below chart
         React.createElement("div", {style: {marginTop: 24}},
           React.createElement(NewsWidget, {title: "Regime Impact News"})
@@ -3080,9 +3145,23 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
       // Get the active portfolio (custom or backend)
       const activePortfolio = getActivePortfolio(demoP);
       
+      console.log("Sending portfolio data:", activePortfolio); // Debug log
+      
+      // Ensure portfolio has proper structure for API
+      const portfolioForAPI = {
+        ...activePortfolio,
+        holdings: activePortfolio.holdings?.map(h => ({
+          ticker: h.ticker,
+          name: h.name,
+          weight: h.weight,
+          value: h.value,
+          assetClass: h.assetClass || h.asset_class
+        })) || []
+      };
+      
       // Run optimization with and without regime context for comparison
       const requestData = {
-        portfolio: activePortfolio,
+        portfolio: portfolioForAPI,
         constraints: params,
         regime_mode: isRegimeActive,
         current_regime: regime.current,
@@ -3094,9 +3173,14 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
         apiFetch(endpoint,token,{method:"POST",body:JSON.stringify(requestData)})
       ]);
       
+      console.log("API responses:", {base, regimeAware}); // Debug log
+      
       setBaseResult(base);
       setResult(regimeAware);
-    }catch(e){setErr(e.message)}finally{setLoading(false)}
+    }catch(e){
+      console.error("API error:", e); // Debug log
+      setErr(e.message);
+    }finally{setLoading(false)}
   };
   
   return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1200,animation:"fadeUp .4s ease"}},
