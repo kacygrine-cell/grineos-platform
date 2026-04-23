@@ -396,7 +396,12 @@ function AuthScreen({onAuth}){
   const handleAuth=async()=>{
     setLoading(true);setErr("");
     try{
-      const d=await apiFetch("/auth/login",null,{method:"POST",body:JSON.stringify(creds)});
+      const loginData = {
+        email: creds.email,
+        password: creds.password,
+        tenant_slug: creds.tenant
+      };
+      const d=await apiFetch("/api/v1/auth/login",null,{method:"POST",body:JSON.stringify(loginData)});
       onAuth(d.access_token,creds.email);
     }catch(e){setErr(e.message)}finally{setLoading(false)}
   };
