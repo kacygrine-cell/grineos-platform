@@ -1458,49 +1458,18 @@ function AgentTab({token,demoP}){
     try{
       const portfolio=getActivePortfolio(demoP);
       const holdingsSummary=portfolio?.holdings?.slice(0,8).map(h=>`${h.ticker} ${(h.weight||0).toFixed(1)}%`).join(", ")||"";
-      const exposure=regimeConfig.exposure?.rows?.map(r=>`${r.asset_class}: ${r.signal}`).join(" | ")||"";
-
-      const systemPrompt=`You are a senior CIO at an institutional asset manager. You have deep expertise in macro regimes, portfolio allocation, and risk management.
-
-CURRENT MARKET STATE (from GrineOS Engine A — live):
-• Regime: ${regimeConfig.label} — ${regimeConfig.subtitle}
-• Confidence: ${regimeConfig.confidence?.toFixed(0)||"—"}%
-• Regime narrative: ${regimeConfig.narrative?.text||"—"}
-• Growth: ${regimeConfig.drivers?.growth?.label||"—"} (${regimeConfig.drivers?.growth?.score?.toFixed(2)||"—"}σ)
-• Inflation: ${regimeConfig.drivers?.inflation?.label||"—"} (${regimeConfig.drivers?.inflation?.score?.toFixed(2)||"—"}σ)
-• Liquidity: ${regimeConfig.drivers?.liquidity?.label||"—"} (${regimeConfig.drivers?.liquidity?.score?.toFixed(2)||"—"}σ)
-• Volatility: ${regimeConfig.drivers?.volatility?.label||"—"} (${regimeConfig.drivers?.volatility?.score?.toFixed(2)||"—"}σ)
-• Allocation instinct: ${regimeConfig.instinct||"—"}
-• Live exposure map: ${exposure}
-• Risk flag: ${regimeConfig.narrative?.risk_flag||"—"}
-
-PORTFOLIO CONTEXT:
-• Client: ${portfolio?.clientName||"Sarah Mitchell"}
-• AUM: $${((portfolio?.totalValue||2000000)/1e6).toFixed(2)}M
-• Top holdings: ${holdingsSummary}
-
-RESPONSE STYLE:
-- Be direct and decisive. No hedging.
-- Use the live regime data above to inform every answer.
-- Structure as: REGIME ASSESSMENT → MARKET VIEW → ALLOCATION GUIDANCE → KEY RISK
-- Keep each section to 2-3 sentences maximum.
-- Speak like a CIO briefing their investment committee, not a textbook.`;
-
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
+      const res=await fetch(`${ENGINE_A}/agent/chat`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
-          max_tokens:1000,
-          system:systemPrompt,
-          messages:[
-            ...messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6),
-            {role:"user",content:q}
-          ]
+          message:q,
+          history:messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6).map(m=>({role:m.role,content:m.content})),
+          portfolio_summary:portfolio?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M — ${holdingsSummary}`:"Demo portfolio $2.00M"
         })
       });
       const data=await res.json();
-      const reply=data.content?.[0]?.text||"No response received.";
+      if(!res.ok)throw new Error(data.detail||"Agent error");
+      const reply=data.response||"No response.";
       setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
     }catch(e){
       setMessages(prev=>[...prev,{role:"assistant",content:`Error: ${e.message}`}]);
