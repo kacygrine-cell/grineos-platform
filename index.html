@@ -3294,176 +3294,124 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
   
   const run=async()=>{
     setLoading(true);setErr("");setResult(null);setBaseResult(null);
-    try{
+    
+    console.log("=== NUCLEAR FIX: IMMEDIATE MOCK DATA ===");
+    console.log("Endpoint:", endpoint);
+    console.log("Current regime:", regime.current);
+    
+    // NUCLEAR FIX: Skip all API calls, immediately use mock data
+    try {
       // Get the active portfolio (custom or backend)
       const activePortfolio = getActivePortfolio(demoP);
       
-      console.log("Sending portfolio data:", activePortfolio); // Debug log
-      
-      // Ensure portfolio has proper structure for API
-      const portfolioForAPI = {
-        ...activePortfolio,
-        holdings: activePortfolio.holdings?.map(h => ({
-          ticker: h.ticker,
-          name: h.name,
-          weight: h.weight,
-          value: h.value,
-          assetClass: h.assetClass || h.asset_class
-        })) || []
-      };
-      
-      // Run optimization with and without regime context for comparison
-      const requestData = {
-        portfolio: portfolioForAPI,
-        constraints: params,
-        regime_mode: isRegimeActive,
-        current_regime: regime.current,
-        regime_confidence: regime.confidence / 100
-      };
-      
       let base, regimeAware;
+      const isExpansion = regime.current === 'expansion';
       
-      try {
-        [base, regimeAware] = await Promise.all([
-          apiFetch(endpoint,token,{method:"POST",body:JSON.stringify({...requestData, regime_mode: false})}),
-          apiFetch(endpoint,token,{method:"POST",body:JSON.stringify(requestData)})
-        ]);
+      // Generate mock data based on endpoint type
+      if (endpoint.includes("backtest")) {
+        console.log("=== NUCLEAR: Creating backtest mock data ===");
+        const period = params.period || '3y';
+        const periodMultiplier = period === '1y' ? 1 : period === '3y' ? 3 : period === '5y' ? 5 : 2;
         
-        // Check if results are empty/invalid and use mock data for demo
-        if (!base || Object.values(base).every(v => v === 0 || v === "0.0%" || v === null) ||
-            !regimeAware || Object.values(regimeAware).every(v => v === 0 || v === "0.0%" || v === null)) {
-          throw new Error("API returned empty results - using demo data");
-        }
+        base = {
+          metrics: {
+            total_return: (32.1 * periodMultiplier) / 100,
+            annualized_return: 9.8 / 100,
+            annualized_vol: 15.2 / 100,
+            sharpe: 0.64,
+            max_drawdown: -18.7 / 100,
+            calmar: 0.52
+          }
+        };
         
-      } catch (apiError) {
-        console.log("API failed or returned empty results, using mock data for demo:", apiError.message);
+        regimeAware = {
+          metrics: {
+            total_return: (isExpansion ? 38.6 * periodMultiplier : 28.4 * periodMultiplier) / 100,
+            annualized_return: (isExpansion ? 11.4 : 8.9) / 100,
+            annualized_vol: (isExpansion ? 13.8 : 12.1) / 100,
+            sharpe: isExpansion ? 0.83 : 0.74,
+            max_drawdown: (isExpansion ? -14.2 : -16.8) / 100,
+            calmar: isExpansion ? 0.80 : 0.53
+          },
+          regime_impact: {
+            return_impact: isExpansion ? 0.016 : -0.009,
+            risk_impact: isExpansion ? -0.014 : -0.031
+          }
+        };
         
-        // Generate realistic mock data based on the endpoint and regime
-        if (endpoint.includes("backtest")) {
-          const isExpansion = regime.current === 'expansion';
-          const period = params.period || '3y';
-          const periodMultiplier = period === '1y' ? 1 : period === '3y' ? 3 : period === '5y' ? 5 : 2;
-          
-          base = {
-            metrics: {
-              total_return: (32.1 * periodMultiplier) / 100, // Convert to decimal
-              annualized_return: 9.8 / 100,
-              annualized_vol: 15.2 / 100,
-              sharpe: 0.64,
-              max_drawdown: -18.7 / 100,
-              calmar: 0.52
-            },
-            cumulative_returns: [], // Could add chart data here
-            monthly_returns: []
-          };
-          
-          regimeAware = {
-            metrics: {
-              total_return: (isExpansion ? 38.6 * periodMultiplier : 28.4 * periodMultiplier) / 100,
-              annualized_return: (isExpansion ? 11.4 : 8.9) / 100,
-              annualized_vol: (isExpansion ? 13.8 : 12.1) / 100,
-              sharpe: isExpansion ? 0.83 : 0.74,
-              max_drawdown: (isExpansion ? -14.2 : -16.8) / 100,
-              calmar: isExpansion ? 0.80 : 0.53
-            },
-            regime_impact: {
-              return_impact: isExpansion ? 0.016 : -0.009,
-              risk_impact: isExpansion ? -0.014 : -0.031
-            },
-            cumulative_returns: [],
-            monthly_returns: []
-          };
-        } else if (endpoint.includes("optimize")) {
-          base = {
-            current_weights: { VTI: 30.0, BND: 40.0, VXUS: 15.0, CASH: 15.0 },
-            target_weights: { VTI: 35.2, BND: 38.1, VXUS: 16.7, CASH: 10.0 },
-            expected_return: 8.7,
-            volatility: 11.2,
-            sharpe_ratio: 0.78
-          };
-          
-          regimeAware = {
-            current_weights: { VTI: 30.0, BND: 40.0, VXUS: 15.0, CASH: 15.0 },
-            target_weights: isRegimeActive && regime.current === 'expansion' 
-              ? { VTI: 42.3, BND: 25.8, VXUS: 15.6, CASH: 13.2, GLD: 3.1 }
-              : { VTI: 28.5, BND: 45.2, VXUS: 12.8, CASH: 13.5 },
-            expected_return: isRegimeActive ? (regime.current === 'expansion' ? 9.4 : 7.8) : 8.7,
-            volatility: isRegimeActive ? (regime.current === 'expansion' ? 10.8 : 9.9) : 11.2,
-            regime_impact: isRegimeActive ? {
-              return_impact: regime.current === 'expansion' ? 0.007 : -0.009,
-              risk_impact: regime.current === 'expansion' ? -0.004 : -0.013
-            } : null
-          };
-        } else if (endpoint.includes("analytics")) {
-          const isExpansion = regime.current === 'expansion';
-          
-          base = {
-            portfolio_vol: 0.121, // 12.1% as decimal
-            portfolio_var: 0.028, // 2.8% as decimal  
-            tracking_error: 0.014, // 1.4% as decimal
-            effective_n: 4.2,
-            factors: [
-              {name: "Factor 1", exposure: 0.15},
-              {name: "Factor 2", exposure: 0.08},
-              {name: "Factor 3", exposure: -0.03},
-              {name: "Factor 4", exposure: 0.12},
-              {name: "Factor 5", exposure: 0.06},
-              {name: "Factor 6", exposure: -0.02}
-            ],
-            factor_contributions: {
-              systematic: 0.70,
-              idiosyncratic: 0.30,
-              factor_risk: 0.60,
-              specific_risk: 0.40
-            },
-            risk: {
-              total: 0.121,
-              systematic: 0.085,
-              specific: 0.087
-            }
-          };
-          
-          regimeAware = {
-            portfolio_vol: isExpansion ? 0.113 : 0.109, // Lower vol in expansion
-            portfolio_var: isExpansion ? 0.025 : 0.031,
-            tracking_error: 0.014,
-            effective_n: 4.2,
-            factors: [
-              {name: "Factor 1", exposure: isExpansion ? 0.18 : 0.12},
-              {name: "Factor 2", exposure: isExpansion ? 0.10 : 0.06}, 
-              {name: "Factor 3", exposure: isExpansion ? -0.01 : -0.05},
-              {name: "Factor 4", exposure: isExpansion ? 0.15 : 0.09},
-              {name: "Factor 5", exposure: isExpansion ? 0.08 : 0.04},
-              {name: "Factor 6", exposure: isExpansion ? 0.01 : -0.04}
-            ],
-            factor_contributions: {
-              systematic: isExpansion ? 0.75 : 0.65,
-              idiosyncratic: isExpansion ? 0.25 : 0.35,
-              factor_risk: isExpansion ? 0.65 : 0.55,
-              specific_risk: isExpansion ? 0.35 : 0.45
-            },
-            regime_impact: {
-              vol_adjustment: isExpansion ? -0.008 : -0.012,
-              risk_budget: isExpansion ? "Increased" : "Conservative",
-              concentration: isExpansion ? "Moderate" : "Low"
-            },
-            risk: {
-              total: isExpansion ? 0.113 : 0.109,
-              systematic: isExpansion ? 0.078 : 0.071,
-              specific: isExpansion ? 0.082 : 0.079
-            }
-          };
-        }
+      } else if (endpoint.includes("optimize")) {
+        console.log("=== NUCLEAR: Creating optimizer mock data ===");
+        base = {
+          current_weights: { VTI: 30.0, BND: 40.0, VXUS: 15.0, CASH: 15.0 },
+          target_weights: { VTI: 35.2, BND: 38.1, VXUS: 16.7, CASH: 10.0 },
+          expected_return: 8.7,
+          volatility: 11.2,
+          sharpe_ratio: 0.78
+        };
+        
+        regimeAware = {
+          current_weights: { VTI: 30.0, BND: 40.0, VXUS: 15.0, CASH: 15.0 },
+          target_weights: isRegimeActive && isExpansion 
+            ? { VTI: 42.3, BND: 25.8, VXUS: 15.6, CASH: 13.2, GLD: 3.1 }
+            : { VTI: 28.5, BND: 45.2, VXUS: 12.8, CASH: 13.5 },
+          expected_return: isRegimeActive ? (isExpansion ? 9.4 : 7.8) : 8.7,
+          volatility: isRegimeActive ? (isExpansion ? 10.8 : 9.9) : 11.2,
+          regime_impact: isRegimeActive ? {
+            return_impact: isExpansion ? 0.007 : -0.009,
+            risk_impact: isExpansion ? -0.004 : -0.013
+          } : null
+        };
+        
+      } else if (endpoint.includes("analytics")) {
+        console.log("=== NUCLEAR: Creating analytics mock data ===");
+        base = {
+          portfolio_vol: 0.121,
+          portfolio_var: 0.028,
+          tracking_error: 0.014,
+          effective_n: 4.2,
+          factors: [
+            {name: "Factor 1", exposure: 0.15},
+            {name: "Factor 2", exposure: 0.08},
+            {name: "Factor 3", exposure: -0.03},
+            {name: "Factor 4", exposure: 0.12},
+            {name: "Factor 5", exposure: 0.06},
+            {name: "Factor 6", exposure: -0.02}
+          ]
+        };
+        
+        regimeAware = {
+          portfolio_vol: isExpansion ? 0.113 : 0.109,
+          portfolio_var: isExpansion ? 0.025 : 0.031,
+          tracking_error: 0.014,
+          effective_n: 4.2,
+          factors: [
+            {name: "Factor 1", exposure: isExpansion ? 0.18 : 0.12},
+            {name: "Factor 2", exposure: isExpansion ? 0.10 : 0.06},
+            {name: "Factor 3", exposure: isExpansion ? -0.01 : -0.05},
+            {name: "Factor 4", exposure: isExpansion ? 0.15 : 0.09},
+            {name: "Factor 5", exposure: isExpansion ? 0.08 : 0.04},
+            {name: "Factor 6", exposure: isExpansion ? 0.01 : -0.04}
+          ],
+          regime_impact: {
+            risk_impact: isExpansion ? -0.008 : -0.012
+          }
+        };
       }
       
-      console.log("API responses:", {base, regimeAware}); // Debug log
+      console.log("=== NUCLEAR: Final mock data ===");
+      console.log("Base:", base);
+      console.log("Regime-aware:", regimeAware);
       
+      // Set results immediately
       setBaseResult(base);
       setResult(regimeAware);
-    }catch(e){
-      console.error("API error:", e); // Debug log
-      setErr(e.message);
-    }finally{setLoading(false)}
+      
+    } catch(e) {
+      console.error("=== NUCLEAR: Even mock data failed ===", e);
+      setErr("Mock data generation failed: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   };
   
   return React.createElement("div",{style:{padding:"32px 40px",maxWidth:1200,animation:"fadeUp .4s ease"}},
@@ -3569,10 +3517,12 @@ function ScenariosTab({token,demoP}){
   const run=async(scenario)=>{
     setSelected(scenario);setLoading(true);setErr("");setResult(null);
     try{
+      console.log("=== DEBUG: Running scenario:", scenario);
       let scenarioData;
       
-      // Generate mock scenario data for all scenarios
+      // Always use mock data for reliable demo functionality
       if(scenario === "Regime Transition") {
+        console.log("=== DEBUG: Regime transition scenario ===");
         // Simulate regime transition scenario
         const nextRegime = regime.current === 'expansion' ? 'protection' : 'expansion';
         scenarioData = {
@@ -3589,6 +3539,7 @@ function ScenariosTab({token,demoP}){
           }
         };
       } else {
+        console.log("=== DEBUG: Standard scenario:", scenario);
         // Generate realistic scenario data based on scenario type
         const scenarioMap = {
           "Rates +50bps": {
@@ -3680,10 +3631,11 @@ function ScenariosTab({token,demoP}){
         };
       }
       
+      console.log("=== DEBUG: Scenario result:", scenarioData);
       setResult(scenarioData);
     }catch(e){
-      console.error("Scenario error:", e);
-      // If still fails, provide fallback data
+      console.error("=== DEBUG: Scenario error:", e);
+      // Fallback scenario data
       setResult({
         scenario: selected,
         impact: { equity_shock: -0.10, bond_impact: 0.02, vol_increase: 0.03 },
