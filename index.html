@@ -282,6 +282,20 @@ function EducationalLanding({onEnterPlatform}){
 
   // Pull live regime data from Engine A
   const{regimeConfig}=useRegime();
+
+  // Restore scroll animations and ticker interval
+  useEffect(()=>{
+    const t=setInterval(()=>setTick(p=>p+1),3000);
+    return()=>clearInterval(t);
+  },[]);
+  useEffect(()=>{
+    const els=document.querySelectorAll('.section-enter');
+    const obs=new IntersectionObserver(entries=>{
+      entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')});
+    },{threshold:0.1});
+    els.forEach(el=>obs.observe(el));
+    return()=>obs.disconnect();
+  },[]);
   const liveCode=regimeConfig.label||"SURGE";
   const liveColor=regimeConfig.color||"#16a34a";
   const liveConf=regimeConfig.confidence||94;
