@@ -77,6 +77,9 @@ input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px r
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback,createContext,useContext}=React;
 const API="https://grine-platform-production.up.railway.app";
+const ENGINE_A="https://grineos-engine-a-production.up.railway.app";
+const REGIME_COLORS={SURGE:"#16a34a",CRUISE:"#22c55e",PRESSURE:"#b45309",SLIDE:"#f97316",SHOCK:"#dc2626",FOG:"#7c3aed"};
+const REGIME_BG={SURGE:"rgba(22,163,74,0.1)",CRUISE:"rgba(34,197,94,0.08)",PRESSURE:"rgba(180,83,9,0.1)",SLIDE:"rgba(249,115,22,0.1)",SHOCK:"rgba(220,38,38,0.1)",FOG:"rgba(124,58,237,0.1)"};
 const T={display:"'Source Serif 4',Georgia,serif",body:"'DM Sans',sans-serif",mono:"'IBM Plex Mono',monospace"};
 const C={bg:"#f8f9fb",white:"#ffffff",surface:"#ffffff",navy:"#1a2332",navyLight:"#2d3a4a",slate:"#475569",soft:"#64748b",faint:"#94a3b8",border:"#e2e8f0",borderLight:"#f1f5f9",accent:"#1a2332",accentLight:"rgba(26,35,50,0.06)",green:"#16a34a",greenBg:"rgba(22,163,74,0.06)",red:"#dc2626",redBg:"rgba(220,38,38,0.06)",blue:"#2563eb",blueBg:"rgba(37,99,235,0.06)",gold:"#b45309",goldBg:"rgba(180,83,9,0.06)",text:"#1a2332",textSoft:"#475569"};
 const CHART_COLORS=["#1a2332","#2563eb","#16a34a","#b45309","#7c3aed","#dc2626","#0891b2","#c026d3","#ea580c","#64748b"];
@@ -84,6 +87,27 @@ const RegimeContext=createContext();
 const useRegime=()=>useContext(RegimeContext);
 const PortfolioContext=createContext();
 const usePortfolio=()=>useContext(PortfolioContext);
+// ── Engine A live hook ────────────────────────────────────────────────────────
+function useEngineA(){
+  const[summary,setSummary]=useState(null);
+  const[loading,setLoading]=useState(true);
+  const[error,setError]=useState(null);
+  const[lastUpdated,setLastUpdated]=useState(null);
+  const fetch_=useCallback(async()=>{
+    try{
+      const res=await fetch(`${ENGINE_A}/regime/summary`);
+      if(!res.ok)throw new Error(`Engine A ${res.status}`);
+      setSummary(await res.json());
+      setLastUpdated(new Date());
+      setError(null);
+    }catch(e){setError(e.message);}
+    finally{setLoading(false);}
+  },[]);
+  useEffect(()=>{fetch_();const id=setInterval(fetch_,5*60*1000);return()=>clearInterval(id);},[fetch_]);
+  return{summary,loading,error,lastUpdated,refresh:fetch_};
+}
+
+// Keep REGIME_PARAMETERS for legacy compatibility with existing tabs
 const REGIME_PARAMETERS={
   expansion:{label:"EXPANSION",color:"#16a34a",bgColor:"rgba(22,163,74,0.1)",volatilityTarget:[0.08,0.12],equityMax:0.80,cashMin:0.02,bondAllocation:0.15,returnMultiplier:1.15,description:"Risk assets favored, low volatility environment"},
   protection:{label:"PROTECTION",color:"#dc2626",bgColor:"rgba(220,38,38,0.1)",volatilityTarget:[0.06,0.10],equityMax:0.50,cashMin:0.15,bondAllocation:0.35,returnMultiplier:0.85,description:"Defensive positioning, capital preservation focus"},
@@ -91,15 +115,135 @@ const REGIME_PARAMETERS={
 };
 
 function RegimeProvider({children}){
-  const[regime,setRegime]=useState({current:'expansion',confidence:94,drivers:{volatility:-2,momentum:1,liquidity:1},mode:'auto',timeHorizon:'3M'});
+  const{summary,loading,error,lastUpdated,refresh}=useEngineA();
   const[isRegimeActive,setIsRegimeActive]=useState(true);
+  // Build regimeConfig from live Engine A data, fall back to static if offline
+  const code=summary?.state?.code||"SURGE";
+  const liveConfig={
+    current:code.toLowerCase(),
+    label:code,
+    subtitle:summary?.state?.subtitle||"Risk Expansion",
+    color:REGIME_COLORS[code]||"#16a34a",
+    bgColor:REGIME_BG[code]||"rgba(22,163,74,0.1)",
+    confidence:summary?.state?.confidence||94,
+    confidenceDelta:summary?.state?.confidence_delta||0,
+    persistence:summary?.state?.confidence_persistence||0,
+    duration:summary?.state?.duration_days||0,
+    description:summary?.state?.description||"Risk assets favored, low volatility environment",
+    instinct:summary?.state?.instinct||"",
+    tagline:summary?.state?.tagline||"",
+    drivers:summary?.state?.drivers||{},
+    transitions:summary?.transitions||[],
+    narrative:summary?.narrative||null,
+    exposure:summary?.exposure||null,
+    returnMultiplier:1.1,equityMax:0.80,cashMin:0.02,bondAllocation:0.15,
+  };
+  // Legacy regime object for existing components
+  const regime={
+    current:liveConfig.current,
+    confidence:liveConfig.confidence,
+    drivers:{volatility:liveConfig.drivers?.volatility?.score||0,momentum:liveConfig.drivers?.growth?.score||0,liquidity:liveConfig.drivers?.liquidity?.score||0},
+    mode:'auto',timeHorizon:'3M'
+  };
+  return <RegimeContext.Provider value={{regime,setRegime:()=>{},isRegimeActive,setIsRegimeActive,regimeConfig:liveConfig,engineLoading:loading,engineError:error,lastUpdated,refresh}}>{children}</RegimeContext.Provider>;
+}
+
+// ── Live Exposure Map panel ───────────────────────────────────────────────────
+function ExposureMapPanel(){
+  const{regimeConfig}=useRegime();
+  const exposure=regimeConfig.exposure;
+  if(!exposure||!exposure.rows)return<div style={{color:C.soft,fontSize:13,padding:16,background:C.borderLight,borderRadius:8}}>Loading live exposure map…</div>;
+  const sigColors={"MAX OVERWEIGHT":C.green,"OVERWEIGHT":"#22c55e","NEUTRAL":C.soft,"FLOOR":C.gold,"ELEVATED":C.gold,"UNDERWEIGHT":"#f97316","MAX UNDERWEIGHT":C.red,"MAXIMUM":C.red};
+  const dirText={"up2":"↑↑","up":"↑","--":"—","dn":"↓","dn2":"↓↓"};
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h3 style={{fontSize:13,fontWeight:600,color:C.navy,textTransform:"uppercase",letterSpacing:"0.08em"}}>Live Exposure Map</h3>
+        <span style={{fontSize:10,padding:"3px 8px",borderRadius:4,background:regimeConfig.bgColor,color:regimeConfig.color,fontWeight:600,fontFamily:T.mono}}>{regimeConfig.label}</span>
+      </div>
+      <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden"}}>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1.6fr 0.5fr 0.9fr 0.7fr",background:C.navy,padding:"9px 14px"}}>
+          {["Asset Class","Signal","Dir","Magnitude","Conf"].map((h,i)=><div key={i} style={{fontSize:9,fontWeight:600,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.08em"}}>{h}</div>)}
+        </div>
+        {exposure.rows.map((row,i)=>(
+          <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1.6fr 0.5fr 0.9fr 0.7fr",padding:"9px 14px",borderBottom:i<exposure.rows.length-1?`1px solid ${C.borderLight}`:"none",background:i%2===0?C.white:"#fafbfc"}}>
+            <div style={{fontSize:12,fontWeight:600,color:C.navy}}>{row.asset_class}</div>
+            <div style={{fontSize:11,fontWeight:700,color:sigColors[row.signal]||C.soft,fontFamily:T.mono}}>{row.signal}</div>
+            <div style={{fontSize:13,fontWeight:700,color:sigColors[row.signal]||C.soft}}>{dirText[row.direction]||row.direction}</div>
+            <div style={{fontSize:11,color:C.soft}}>{row.magnitude}</div>
+            <div style={{fontSize:11,fontFamily:T.mono,color:C.navy,fontWeight:600}}>{row.confidence.toFixed(0)}%</div>
+          </div>
+        ))}
+      </div>
+      {regimeConfig.narrative&&(
+        <div style={{marginTop:10,padding:"9px 12px",borderRadius:6,background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,fontSize:11,fontStyle:"italic",color:C.navy,lineHeight:1.5}}>
+          → {regimeConfig.narrative.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Live Driver Panel ─────────────────────────────────────────────────────────
+function DriverPanel(){
+  const{regimeConfig}=useRegime();
+  const drivers=regimeConfig.drivers||{};
+  return(
+    <div>
+      <h3 style={{fontSize:13,fontWeight:600,color:C.navy,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Signal Drivers</h3>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {[["growth","Growth"],["inflation","Inflation"],["liquidity","Liquidity"],["volatility","Volatility"]].map(([key,label])=>{
+          const d=drivers[key];if(!d)return<div key={key} style={{background:C.borderLight,borderRadius:8,padding:12,height:80}}/>;
+          const isVol=key==="volatility";
+          const color=isVol?(d.score>0?"#dc2626":"#16a34a"):(d.score>0?"#16a34a":"#dc2626");
+          return(
+            <div key={key} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:8,padding:12}}>
+              <div style={{fontSize:9,color:C.faint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,fontFamily:T.mono}}>{label}</div>
+              <div style={{fontSize:16,fontWeight:600,color,fontFamily:T.display,marginBottom:4}}>{d.label}</div>
+              <div style={{height:3,background:C.borderLight,borderRadius:2,marginBottom:4,overflow:"hidden"}}>
+                <div style={{width:`${Math.abs(d.score)/2*100}%`,height:"100%",background:color,borderRadius:2}}/>
+              </div>
+              <div style={{fontSize:9,fontFamily:T.mono,color}}>
+                {d.trend==="rising"?"↑":d.trend==="falling"?"↓":"→"} {d.score>0?"+":""}{d.score.toFixed(2)}σ
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── 90-day Regime Timeline ────────────────────────────────────────────────────
+function RegimeTimeline(){
+  const[history,setHistory]=useState([]);
   useEffect(()=>{
-    if(regime.mode==='auto'){
-      const interval=setInterval(()=>{setRegime(prev=>({...prev,confidence:Math.max(85,Math.min(98,prev.confidence+(Math.random()-0.5)*4))}))},30000);
-      return()=>clearInterval(interval);
-    }
-  },[regime.mode]);
-  return <RegimeContext.Provider value={{regime,setRegime,isRegimeActive,setIsRegimeActive,regimeConfig:REGIME_PARAMETERS[regime.current]}}>{children}</RegimeContext.Provider>;
+    fetch(`${ENGINE_A}/regime/history?days=90`).then(r=>r.json()).then(d=>setHistory(d.history||[])).catch(()=>{});
+  },[]);
+  if(!history.length)return null;
+  return(
+    <div style={{marginTop:24}}>
+      <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontFamily:T.mono}}>90-Day Regime History</div>
+      <div style={{height:12,borderRadius:4,overflow:"hidden",display:"flex"}}>
+        {history.map((r,i)=>(
+          <div key={i} title={`${new Date(r.date).toLocaleDateString()} — ${r.regime}`}
+            style={{flex:1,background:REGIME_COLORS[r.regime]||C.soft,opacity:0.75,transition:"opacity 0.2s",cursor:"default"}}
+            onMouseEnter={e=>e.target.style.opacity="1"} onMouseLeave={e=>e.target.style.opacity="0.75"}/>
+        ))}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:3,fontSize:9,color:C.faint,fontFamily:T.mono}}>
+        <span>90 days ago</span><span>Today</span>
+      </div>
+      <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
+        {Object.entries(REGIME_COLORS).map(([regime,color])=>(
+          <div key={regime} style={{display:"flex",alignItems:"center",gap:3}}>
+            <span style={{width:7,height:7,borderRadius:2,background:color,display:"inline-block"}}/>
+            <span style={{fontSize:9,color:C.faint,fontFamily:T.mono}}>{regime}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PortfolioProvider({children}){
@@ -549,10 +693,15 @@ function EducationalLanding({onEnterPlatform}){
 
 /* ═══ REGIME TOP BAR ═══ */
 function RegimeTopBar(){
-  const{regime,setRegime,regimeConfig}=useRegime();
+  const{regime,setRegime,regimeConfig,engineError,lastUpdated,refresh}=useRegime();
+  const color=regimeConfig.color;
   const driverSymbols={volatility:regime.drivers.volatility<0?'↓':'↑',momentum:regime.drivers.momentum>0?'↑':'↓',liquidity:regime.drivers.liquidity>0?'↑':'↓'};
   const driverColors={volatility:regime.drivers.volatility<0?'#16a34a':'#dc2626',momentum:regime.drivers.momentum>0?'#16a34a':'#dc2626',liquidity:regime.drivers.liquidity>0?'#16a34a':'#dc2626'};
   const transitions={expansion:0.73,protection:0.12,transition:0.15};
+  // Use live transition data if available
+  const liveTransitions=regimeConfig.transitions&&regimeConfig.transitions.length>0
+    ?Object.fromEntries(regimeConfig.transitions.map(t=>[t.regime.toLowerCase(),t.probability]))
+    :transitions;
   return(
     <div style={{background:`linear-gradient(135deg,${C.navy} 0%,${C.navyLight} 100%)`,color:'#fff',borderBottom:`1px solid ${C.navyLight}`,position:'sticky',top:0,zIndex:50}}>
       <div style={{height:48,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 32px'}}>
@@ -560,8 +709,12 @@ function RegimeTopBar(){
           <div style={{display:'flex',alignItems:'center',gap:8}}>
             <div className="regime-indicator" style={{width:8,height:8,borderRadius:'50%',backgroundColor:regimeConfig.color}}/>
             <span style={{fontFamily:T.display,fontSize:16,fontWeight:600,letterSpacing:'0.02em'}}>{regimeConfig.label}</span>
+            <span style={{fontSize:11,opacity:0.5,fontWeight:300}}>{regimeConfig.subtitle||""}</span>
           </div>
-          <span style={{fontSize:12,opacity:0.8}}>{Math.round(regime.confidence)}% confidence</span>
+          <div style={{display:'flex',alignItems:'center',gap:4}}>
+            <span style={{fontSize:12,opacity:0.8}}>{Math.round(regimeConfig.confidence||regime.confidence)}%</span>
+            {regimeConfig.confidenceDelta!==undefined&&<span style={{fontSize:10,color:regimeConfig.confidenceDelta>=0?'#16a34a':'#f97316',fontFamily:T.mono}}>{regimeConfig.confidenceDelta>=0?"+":""}{regimeConfig.confidenceDelta.toFixed(1)}pts</span>}
+          </div>
           <div style={{display:'flex',alignItems:'center',gap:12,fontFamily:T.mono,fontSize:10}}>
             {['volatility','momentum','liquidity'].map(k=>(
               <div key={k} style={{display:'flex',alignItems:'center',gap:4}}>
@@ -574,14 +727,22 @@ function RegimeTopBar(){
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,fontSize:11,fontFamily:T.mono}}>
           <span style={{opacity:0.6,fontSize:10,textTransform:'uppercase'}}>Next 30D</span>
-          {Object.entries(transitions).map(([r,prob])=>(
-            <div key={r} style={{display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:3,backgroundColor:r===regime.current?'rgba(255,255,255,0.15)':'transparent'}}>
-              <span style={{fontSize:9,textTransform:'uppercase',opacity:0.8}}>{r.slice(0,3)}</span>
-              <span style={{fontWeight:600,color:REGIME_PARAMETERS[r].color}}>{Math.round(prob*100)}%</span>
-            </div>
-          ))}
+          {Object.entries(liveTransitions).slice(0,3).map(([r,prob])=>{
+            const rColor=REGIME_COLORS[r.toUpperCase()]||REGIME_PARAMETERS[r]?.color||'#fff';
+            return(
+              <div key={r} style={{display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:3,backgroundColor:r===regime.current?'rgba(255,255,255,0.15)':'transparent'}}>
+                <span style={{fontSize:9,textTransform:'uppercase',opacity:0.8}}>{r.slice(0,3)}</span>
+                <span style={{fontWeight:600,color:rColor}}>{Math.round(prob*100)}%</span>
+              </div>
+            );
+          })}
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div style={{padding:'4px 10px',borderRadius:4,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',display:'flex',alignItems:'center',gap:6}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:engineError?'#dc2626':'#16a34a',display:'inline-block'}}/>
+            <span style={{fontSize:9,fontFamily:T.mono,letterSpacing:'0.1em',opacity:0.8}}>{engineError?"OFFLINE":"LIVE"}</span>
+          </div>
+          <button onClick={refresh} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:'4px 6px'}} title="Refresh Engine A">↺</button>
           <div style={{display:'flex',backgroundColor:C.navyLight,borderRadius:4,overflow:'hidden'}}>
             {['auto','manual'].map(m=>(
               <button key={m} style={{padding:'6px 12px',fontSize:11,fontWeight:600,border:'none',cursor:'pointer',backgroundColor:regime.mode===m?'#fff':'transparent',color:regime.mode===m?C.navy:'#fff',transition:'all 0.2s',textTransform:'uppercase'}} onClick={()=>setRegime({...regime,mode:m})}>{m.toUpperCase()}</button>
@@ -1164,6 +1325,11 @@ function DemoTab({demoP}){
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:32}}>
         {metrics.map((m,i)=><MetricCard key={i} {...m}/>)}
       </div>
+      {/* Live Engine A panels */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,marginBottom:32}}>
+        <ExposureMapPanel/>
+        <DriverPanel/>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}}>
         <div>
           <h3 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Allocation</h3>
@@ -1182,6 +1348,7 @@ function DemoTab({demoP}){
           <DataTable headers={["Ticker","Name","Asset Class","Value","Weight"]} rows={processedHoldings.map(h=>[h.ticker,h.name||"—",h.assetClass||"—",`$${(h.value||0).toLocaleString()}`,`${(h.weight||0).toFixed(1)}%`])}/>
         </div>
       )}
+      <RegimeTimeline/>
     </div>
   );
 }
@@ -1347,9 +1514,10 @@ function ScenariosTab({token,demoP}){
 function Dashboard({token,userEmail,onLogout}){
   const[tab,setTab]=useState("demo");const[health,setHealth]=useState(null);const[demoP,setDemoP]=useState(null);
   const[regimeSidebarOpen,setRegimeSidebarOpen]=useState(false);
+  const{regimeConfig,engineError,lastUpdated}=useRegime();
   useEffect(()=>{
     fetch(`${API}/health`).then(r=>r.json()).then(setHealth).catch(()=>setHealth({status:"error"}));
-    apiFetch("/api/v1/demo/portfolio",token).then(setDemoP).catch(()=>{});
+    apiFetch(`${API}/api/v1/demo/portfolio`,token).then(setDemoP).catch(()=>{});
   },[token]);
   let content;
   if(tab==="demo")content=<DemoTab demoP={demoP}/>;
@@ -1386,7 +1554,8 @@ function Dashboard({token,userEmail,onLogout}){
       <footer style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 32px",borderTop:`1px solid ${C.border}`,background:C.white,fontSize:11,color:C.faint,flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{display:"flex",alignItems:"center"}}><Dot ok={health?.status==="healthy"||health?.status==="ok"}/>API <Tag color={health?.status==="healthy"||health?.status==="ok"?C.green:C.red}>{health?.status||"..."}</Tag></div>
-          <div style={{display:"flex",alignItems:"center"}}><Dot ok/>Regime Engine <Tag color={C.blue}>v2.1.0</Tag></div>
+          <div style={{display:"flex",alignItems:"center"}}><Dot ok={!engineError}/>Engine A <Tag color={engineError?C.red:C.green}>{engineError?"offline":"live"}</Tag></div>
+          {lastUpdated&&<div style={{fontSize:10,color:C.faint}}>Updated {lastUpdated.toLocaleTimeString()}</div>}
         </div>
         <div>Grine Technologies Ltd · A KG&Co Company</div>
       </footer>
