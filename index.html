@@ -1481,8 +1481,7 @@ function AgentTab({token,demoP}){
   return(
     <div style={{padding:"32px 40px",maxWidth:1000,animation:"fadeUp .4s ease",height:"calc(100vh - 200px)",display:"flex",flexDirection:"column"}}>
       <div style={{marginBottom:24,borderBottom:`1px solid ${C.border}`,paddingBottom:16}}>
-        <h2 style={{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}>CIO Agent</h2>
-        <p style={{fontSize:14,color:C.soft,marginTop:4}}>Powered by Claude · Grounded in live regime intelligence from Engine A</p>
+        <h2 style={{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}>Grine</h2>
         <div style={{marginTop:10,padding:"8px 14px",borderRadius:6,backgroundColor:regimeConfig.bgColor,display:"inline-flex",alignItems:"center",gap:8}}>
           <span style={{width:6,height:6,borderRadius:"50%",background:regimeConfig.color,display:"inline-block"}}/>
           <span style={{fontSize:12,color:regimeConfig.color,fontWeight:600}}>
@@ -1506,16 +1505,49 @@ function AgentTab({token,demoP}){
               ))}
             </div>
           </div>
-        ):messages.map((msg,i)=>(
-          <div key={i} style={{marginBottom:16,padding:16,borderRadius:8,background:msg.role==="user"?C.accentLight:C.borderLight,animation:`slideIn 0.3s ease ${i*0.03}s both`}}>
-            <div style={{fontSize:10,color:C.soft,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6,fontFamily:T.mono}}>{msg.role==="user"?"You":"CIO Agent · Claude"}</div>
-            <div style={{fontSize:14,lineHeight:1.6,color:C.navy,whiteSpace:"pre-wrap"}}>{msg.content}</div>
+        ):messages.map((msg,i)=>{
+          const isUser=msg.role==="user";
+          return(
+            <div key={i} style={{
+              display:"flex",
+              flexDirection:"column",
+              alignItems:isUser?"flex-end":"flex-start",
+              marginBottom:14,
+              animation:`slideIn 0.25s ease ${i*0.03}s both`
+            }}>
+              {/* Label */}
+              <div style={{
+                fontSize:10,color:C.faint,
+                textTransform:"uppercase",letterSpacing:"0.1em",
+                marginBottom:4,fontFamily:T.mono,
+                paddingLeft:isUser?0:4,paddingRight:isUser?4:0
+              }}>{isUser?"You":"Grine"}</div>
+              {/* Bubble */}
+              <div style={{
+                maxWidth:"75%",
+                padding:"12px 16px",
+                borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                background:isUser?C.navy2:C.white,
+                border:isUser?"none":`1px solid ${C.border}`,
+                boxShadow:isUser?"none":"0 1px 4px rgba(0,0,0,0.06)"
+              }}>
+                <div style={{
+                  fontSize:14,lineHeight:1.6,
+                  color:isUser?"#fff":C.navy,
+                  whiteSpace:"pre-wrap"
+                }}>{msg.content}</div>
+              </div>
+            </div>
+          );
+        })}
+        {loading&&(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",marginBottom:14}}>
+            <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono,paddingLeft:4}}>Grine</div>
+            <div style={{padding:"12px 20px",borderRadius:"18px 18px 18px 4px",background:C.white,border:`1px solid ${C.border}`,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:5}}>
+              {[0,1,2].map(i=><span key={i} style={{width:7,height:7,borderRadius:"50%",background:C.faint,display:"inline-block",animation:`pulse ${0.8+i*0.15}s ease infinite`}}/>)}
+            </div>
           </div>
-        ))}
-        {loading&&<div style={{padding:16,borderRadius:8,background:C.borderLight,marginBottom:16}}>
-          <div style={{fontSize:10,color:C.soft,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontFamily:T.mono}}>CIO Agent · Thinking</div>
-          <div style={{display:"flex",gap:4}}>{[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:C.faint,display:"inline-block",animation:`pulse ${0.8+i*0.15}s ease infinite`}}/>)}</div>
-        </div>}
+        )}
       </div>
 
       <div style={{display:"flex",gap:10}}>
