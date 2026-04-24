@@ -1498,44 +1498,52 @@ function AgentTab({token,demoP}){
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {suggestions.map((s,i)=>(
-                <button key={i} onClick={()=>{setInput(s);}} style={{
-                  ...btnOutline,textAlign:"left",padding:"10px 14px",fontSize:13,
-                  fontWeight:400,color:C.navy,borderColor:C.border,lineHeight:1.4
-                }}>{s}</button>
+                <button key={i} onClick={()=>setInput(s)} style={{...btnOutline,textAlign:"left",padding:"10px 14px",fontSize:13,fontWeight:400,color:C.navy,borderColor:C.border,lineHeight:1.4}}>{s}</button>
               ))}
             </div>
           </div>
         ):messages.map((msg,i)=>{
           const isUser=msg.role==="user";
+          // Parse Grine response into labelled sections
+          const parseGrine=(text)=>{
+            const sections=[];
+            const parts=text.split(/\*\*([^*]+):\*\*/g);
+            if(parts.length<=1)return<div style={{fontSize:14,lineHeight:1.65,color:C.navy,whiteSpace:"pre-wrap"}}>{text}</div>;
+            // parts: ["pre", "LABEL", "content", "LABEL", "content", ...]
+            if(parts[0].trim())sections.push({label:null,content:parts[0].trim()});
+            for(let j=1;j<parts.length;j+=2){
+              sections.push({label:parts[j],content:(parts[j+1]||"").trim()});
+            }
+            return(
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {sections.map((s,k)=>(
+                  <div key={k}>
+                    {s.label&&(
+                      <div style={{fontSize:9,fontWeight:700,letterSpacing:"0.12em",color:regimeConfig.color,textTransform:"uppercase",fontFamily:T.mono,marginBottom:3}}>{s.label}</div>
+                    )}
+                    <div style={{fontSize:14,lineHeight:1.65,color:C.navy}}>{s.content}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          };
           return(
-            <div key={i} style={{
-              display:"flex",
-              flexDirection:"column",
-              alignItems:isUser?"flex-end":"flex-start",
-              marginBottom:14,
-              animation:`slideIn 0.25s ease ${i*0.03}s both`
-            }}>
-              {/* Label */}
+            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",marginBottom:16,animation:`slideIn 0.25s ease ${i*0.03}s both`}}>
+              <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono,paddingLeft:isUser?0:2,paddingRight:isUser?2:0}}>
+                {isUser?"You":"Grine"}
+              </div>
               <div style={{
-                fontSize:10,color:C.faint,
-                textTransform:"uppercase",letterSpacing:"0.1em",
-                marginBottom:4,fontFamily:T.mono,
-                paddingLeft:isUser?0:4,paddingRight:isUser?4:0
-              }}>{isUser?"You":"Grine"}</div>
-              {/* Bubble */}
-              <div style={{
-                maxWidth:"75%",
-                padding:"12px 16px",
-                borderRadius:isUser?"18px 18px 4px 18px":"18px 18px 18px 4px",
+                maxWidth:"72%",
+                padding:isUser?"11px 16px":"16px 20px",
+                borderRadius:isUser?"18px 18px 4px 18px":"4px 18px 18px 18px",
                 background:isUser?C.navy2:C.white,
                 border:isUser?"none":`1px solid ${C.border}`,
-                boxShadow:isUser?"none":"0 1px 4px rgba(0,0,0,0.06)"
+                boxShadow:isUser?"0 2px 8px rgba(26,35,50,0.18)":"0 1px 4px rgba(0,0,0,0.06)"
               }}>
-                <div style={{
-                  fontSize:14,lineHeight:1.6,
-                  color:isUser?"#fff":C.navy,
-                  whiteSpace:"pre-wrap"
-                }}>{msg.content}</div>
+                {isUser
+                  ?<div style={{fontSize:14,lineHeight:1.55,color:"#ffffff",fontWeight:500}}>{msg.content}</div>
+                  :parseGrine(msg.content)
+                }
               </div>
             </div>
           );
