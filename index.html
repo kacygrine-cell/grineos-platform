@@ -536,86 +536,74 @@ function EducationalLanding({onEnterPlatform}){
 
       {/* ── REGIME SECTION ── */}
       <div style={{background:'#fafafa',borderTop:'1px solid '+C.border,borderBottom:'1px solid '+C.border}}>
-        <div className="section-enter" style={{padding:'96px 64px',maxWidth:1200,margin:'0 auto'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:64}}>
+        <div className="section-enter" style={{padding:'80px 64px',maxWidth:1200,margin:'0 auto'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:48}}>
             <div>
               <div style={{fontSize:11,letterSpacing:'0.14em',color:C.soft,textTransform:'uppercase',fontWeight:600,marginBottom:16,fontFamily:T.mono}}>Market Regimes</div>
-              <h2 style={{fontFamily:T.display,fontSize:'clamp(32px,4vw,48px)',fontWeight:600,color:C.navy,lineHeight:1.1,letterSpacing:'-0.02em'}}>
-                Three regimes.<br/><span style={{fontStyle:'italic',color:C.soft}}>One allocation framework.</span>
+              <h2 style={{fontFamily:T.display,fontSize:'clamp(28px,3.5vw,42px)',fontWeight:600,color:C.navy,lineHeight:1.1,letterSpacing:'-0.02em'}}>
+                Six regimes.<br/><span style={{fontStyle:'italic',color:C.soft}}>One allocation framework.</span>
               </h2>
             </div>
-            <p style={{fontSize:14,color:C.soft,maxWidth:320,lineHeight:1.65,textAlign:'right',fontWeight:300}}>
-              Every allocation decision starts with regime identification. The engine runs continuously, translating market conditions into portfolio constraints.
+            <p style={{fontSize:14,color:C.soft,maxWidth:300,lineHeight:1.65,textAlign:'right',fontWeight:300}}>
+              Every allocation decision starts with regime identification. The engine classifies in real time and tells you exactly what to do.
             </p>
           </div>
 
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:24}}>
-            {regimeData.map((regime,i)=>(
-              <div key={regime.key}
-                onMouseEnter={()=>setHoveredRegime(regime.key)}
-                onMouseLeave={()=>setHoveredRegime(null)}
-                style={{
-                  background:C.white,border:'1px solid '+C.border,
-                  borderRadius:12,overflow:'hidden',
-                  transition:'all 0.25s ease',
-                  transform:hoveredRegime===regime.key?'translateY(-4px)':'translateY(0)',
-                  boxShadow:hoveredRegime===regime.key?`0 16px 40px rgba(0,0,0,0.08)`:'0 1px 3px rgba(0,0,0,0.03)',
-                  cursor:'default'
-                }}>
-                {/* Colour top bar */}
-                <div style={{height:4,background:regime.color}}/>
-                <div style={{padding:28}}>
-                  {/* Header */}
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
-                    <div>
-                      <div style={{fontSize:11,fontWeight:700,letterSpacing:'0.12em',color:regime.color,textTransform:'uppercase',fontFamily:T.mono,marginBottom:4}}>{regime.label}</div>
-                      <div style={{fontSize:15,fontWeight:500,color:C.navy,fontFamily:T.display}}>{regime.tagline}</div>
-                    </div>
-                    <div style={{
-                      padding:'4px 10px',borderRadius:100,
-                      background:regime.bg,border:'1px solid '+regime.border,
-                      fontSize:10,fontWeight:600,color:regime.color,
-                      fontFamily:T.mono,letterSpacing:'0.08em',flexShrink:0,marginLeft:8
-                    }}>LIVE</div>
-                  </div>
+          {/* Header row */}
+          <div style={{display:'grid',gridTemplateColumns:'140px 1fr 1fr 90px 90px',gap:0,borderBottom:'2px solid '+C.navy,paddingBottom:10,marginBottom:0}}>
+            {['Regime','Description','Allocation Instinct','Max Eq.','Min Cash'].map((h,i)=>(
+              <div key={i} style={{fontSize:10,fontWeight:700,color:C.soft,textTransform:'uppercase',letterSpacing:'0.1em',fontFamily:T.mono,paddingRight:16}}>{h}</div>
+            ))}
+          </div>
 
-                  <p style={{fontSize:13,lineHeight:1.65,color:C.soft,marginBottom:20,fontWeight:300}}>{regime.desc}</p>
-
-                  {/* Characteristics */}
-                  <div style={{marginBottom:20}}>
-                    <div style={{fontSize:10,letterSpacing:'0.1em',color:C.faint,textTransform:'uppercase',fontWeight:600,marginBottom:10,fontFamily:T.mono}}>Key Characteristics</div>
-                    <div style={{display:'grid',gap:6}}>
-                      {regime.chars.map((c,j)=>(
-                        <div key={j} style={{display:'flex',alignItems:'center',gap:8}}>
-                          <div style={{width:4,height:4,borderRadius:'50%',background:regime.color,flexShrink:0}}/>
-                          <span style={{fontSize:13,color:C.navy,fontWeight:400}}>{c}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Allocation strategy */}
-                  <div style={{
-                    padding:'12px 14px',borderRadius:8,
-                    background:regime.bg,border:'1px solid '+regime.border
-                  }}>
-                    <div style={{fontSize:10,letterSpacing:'0.1em',color:regime.color,textTransform:'uppercase',fontWeight:600,marginBottom:6,fontFamily:T.mono}}>Allocation Strategy</div>
-                    <div style={{fontSize:13,color:C.navy,fontWeight:400,marginBottom:10}}>{regime.alloc}</div>
-                    <div style={{display:'flex',gap:16}}>
-                      <div>
-                        <div style={{fontSize:10,color:C.faint,marginBottom:2}}>Max Equity</div>
-                        <div style={{fontSize:14,fontWeight:700,color:regime.color,fontFamily:T.mono}}>{regime.maxEq}</div>
-                      </div>
-                      <div style={{width:1,background:regime.border}}/>
-                      <div>
-                        <div style={{fontSize:10,color:C.faint,marginBottom:2}}>Min Cash</div>
-                        <div style={{fontSize:14,fontWeight:700,color:regime.color,fontFamily:T.mono}}>{regime.minCash}</div>
-                      </div>
-                    </div>
+          {/* Regime rows */}
+          {[
+            {code:'SURGE',   color:'#16a34a', desc:'Growth accelerating, inflation contained, liquidity abundant, volatility suppressed.',    instinct:'Deploy maximum risk. Overweight equities and credit.',     maxEq:'80%', minCash:'2%'},
+            {code:'CRUISE',  color:'#22c55e', desc:'Mature bull market, leadership narrowing. Growth positive, inflation rising.',             instinct:'Stay invested. Quality bias. Begin trimming duration.',    maxEq:'70%', minCash:'3%'},
+            {code:'PRESSURE',color:'#b45309', desc:'Growth decelerating while inflation stays elevated. 60/40 structurally challenged.',       instinct:'Cut duration. Overweight commodities and real assets.',    maxEq:'55%', minCash:'10%'},
+            {code:'SLIDE',   color:'#f97316', desc:'Growth in recession territory. Earnings deteriorating. Credit spreads widening.',          instinct:'De-risk immediately. Defensives and quality bonds only.',  maxEq:'45%', minCash:'12%'},
+            {code:'SHOCK',   color:'#dc2626', desc:'Liquidity seizes. Volatility spikes. All asset classes reprice simultaneously.',          instinct:'Capital preservation only. Cash and sovereigns. No risk.', maxEq:'20%', minCash:'30%'},
+            {code:'FOG',     color:'#7c3aed', desc:'Mixed signals, high model uncertainty. Dangerous moment for high-conviction bets.',        instinct:'Neutral positioning. Reduce sizing. Wait for confirmation.',maxEq:'60%', minCash:'8%'},
+          ].map((r,i)=>(
+            <div key={r.code} style={{
+              display:'grid',gridTemplateColumns:'140px 1fr 1fr 90px 90px',
+              padding:'18px 0',
+              borderBottom:`1px solid ${C.borderLight}`,
+              transition:'background 0.15s',
+            }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(0,0,0,0.015)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+            >
+              {/* Regime name */}
+              <div style={{display:'flex',alignItems:'center',gap:8,paddingRight:16}}>
+                <div style={{width:3,height:32,borderRadius:2,background:r.color,flexShrink:0}}/>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:r.color,letterSpacing:'0.1em',fontFamily:T.mono}}>{r.code}</div>
+                  <div style={{fontSize:9,color:C.faint,letterSpacing:'0.06em',fontFamily:T.mono,marginTop:1,textTransform:'uppercase'}}>
+                    {['Risk Exp.','Cycle Mom.','Infl. Squeeze','Growth Break','Liq. Break','Uncertainty'][i]}
                   </div>
                 </div>
               </div>
-            ))}
+              {/* Description */}
+              <div style={{fontSize:13,color:C.soft,lineHeight:1.5,paddingRight:24,fontWeight:300}}>{r.desc}</div>
+              {/* Instinct */}
+              <div style={{fontSize:13,color:C.navy,lineHeight:1.5,paddingRight:24,fontWeight:500}}>{r.instinct}</div>
+              {/* Max Eq */}
+              <div style={{fontSize:14,fontWeight:700,color:r.color,fontFamily:T.mono}}>{r.maxEq}</div>
+              {/* Min Cash */}
+              <div style={{fontSize:14,fontWeight:700,color:C.soft,fontFamily:T.mono}}>{r.minCash}</div>
+            </div>
+          ))}
+
+          <div style={{marginTop:24,display:'flex',justifyContent:'flex-end'}}>
+            <button onClick={onEnterPlatform} style={{
+              padding:'10px 24px',borderRadius:6,border:`1px solid ${C.navy}`,
+              background:'transparent',color:C.navy,fontSize:13,fontWeight:600,
+              cursor:'pointer',fontFamily:T.body,transition:'all 0.2s'
+            }}
+              onMouseEnter={e=>{e.target.style.background=C.navy;e.target.style.color='#fff'}}
+              onMouseLeave={e=>{e.target.style.background='transparent';e.target.style.color=C.navy}}
+            >See live regime in platform →</button>
           </div>
         </div>
       </div>
