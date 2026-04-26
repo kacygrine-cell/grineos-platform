@@ -1403,6 +1403,421 @@ function AlertPanel(){
     </div>
   );
 }
+// ══════════════════════════════════════════════════════════════════════════════
+// RISK PROFILE SYSTEM
+// ══════════════════════════════════════════════════════════════════════════════
+
+const RiskProfileContext = createContext();
+const useRiskProfile = () => useContext(RiskProfileContext);
+
+const DEFAULT_PROFILE = {
+  risk_tolerance: "moderate",   // conservative | moderate | aggressive
+  horizon: "medium",            // short | medium | long
+  objective: "balanced",        // preservation | income | balanced | growth | maximum_growth
+  name: "Sarah Mitchell",
+  aum: 2000000,
+  completed: false,
+};
+
+// Multiplier table: [regime][tolerance] -> equity signal adjustment
+// Values: -2 = max underweight, -1 = underweight, 0 = neutral, 1 = overweight, 2 = max overweight
+const REGIME_PROFILE_MATRIX = {
+  SURGE:    { conservative: 0.55, moderate: 0.80, aggressive: 1.00 },
+  CRUISE:   { conservative: 0.60, moderate: 0.82, aggressive: 1.00 },
+  PRESSURE: { conservative: 0.40, moderate: 0.65, aggressive: 0.90 },
+  SLIDE:    { conservative: 0.30, moderate: 0.55, aggressive: 0.80 },
+  SHOCK:    { conservative: 0.10, moderate: 0.30, aggressive: 0.55 },
+  FOG:      { conservative: 0.45, moderate: 0.65, aggressive: 0.85 },
+};
+
+// Horizon modifier on top of tolerance
+const HORIZON_MOD = { short: -0.10, medium: 0.00, long: 0.08 };
+
+function getProfileMultiplier(regime, profile) {
+  const base = REGIME_PROFILE_MATRIX[regime]?.[profile.risk_tolerance] ?? 0.65;
+  const horizonAdj = HORIZON_MOD[profile.horizon] ?? 0;
+  return Math.min(1.0, Math.max(0.05, base + horizonAdj));
+}
+
+function getProfileSignal(baseSignal, multiplier) {
+  const signalMap = {
+    "MAX OVERWEIGHT":  [null, "UNDERWEIGHT", "NEUTRAL", "OVERWEIGHT", "OVERWEIGHT", "MAX OVERWEIGHT"],
+    "OVERWEIGHT":      [null, "UNDERWEIGHT", "NEUTRAL", "NEUTRAL", "OVERWEIGHT", "OVERWEIGHT"],
+    "NEUTRAL":         [null, "UNDERWEIGHT", "NEUTRAL", "NEUTRAL", "NEUTRAL", "OVERWEIGHT"],
+    "FLOOR":           [null, "FLOOR", "FLOOR", "FLOOR", "FLOOR", "FLOOR"],
+    "ELEVATED":        [null, "MAXIMUM", "ELEVATED", "ELEVATED", "ELEVATED", "FLOOR"],
+    "MAX UNDERWEIGHT": [null, "MAX UNDERWEIGHT", "MAX UNDERWEIGHT", "UNDERWEIGHT", "UNDERWEIGHT", "NEUTRAL"],
+    "UNDERWEIGHT":     [null, "MAX UNDERWEIGHT", "UNDERWEIGHT", "UNDERWEIGHT", "NEUTRAL", "NEUTRAL"],
+    "MAXIMUM":         [null, "MAXIMUM", "MAXIMUM", "ELEVATED", "ELEVATED", "ELEVATED"],
+  };
+  const idx = Math.round(multiplier * 5); // 0-5
+  return signalMap[baseSignal]?.[idx] ?? baseSignal;
+}
+
+function RiskProfileProvider({ children }) {
+  const [profile, setProfileState] = useState(() => {
+    try {
+      const saved = localStorage.getItem("grineos_risk_profile");
+      return saved ? { ...DEFAULT_PROFILE, ...JSON.parse(saved) } : DEFAULT_PROFILE;
+    } catch { return DEFAULT_PROFILE; }
+  });
+
+  const setProfile = (updates) => {
+    const next = { ...profile, ...updates };
+    setProfileState(next);
+    try { localStorage.setItem("grineos_risk_profile", JSON.stringify(next)); } catch {}
+  };
+
+  const resetProfile = () => {
+    setProfileState(DEFAULT_PROFILE);
+    try { localStorage.removeItem("grineos_risk_profile"); } catch {}
+  };
+
+  return (
+    <RiskProfileContext.Provider value={{ profile, setProfile, resetProfile }}>
+      {children}
+    </RiskProfileContext.Provider>
+  );
+}
+
+// ── Risk Profile Setup Screen ─────────────────────────────────────────────────
+function RiskProfileSetup({ onComplete }) {
+  const { profile, setProfile } = useRiskProfile();
+  const { regimeConfig } = useRegime();
+  const [step, setStep] = useState(0);
+  const [local, setLocal] = useState({ ...profile });
+
+  const toleranceOpts = [
+    { value: "conservative", label: "Conservative", desc: "Capital preservation first. Willing to accept lower returns to reduce drawdowns.", icon: "🛡" },
+    { value: "moderate",     label: "Moderate",     desc: "Balanced approach. Accept moderate volatility for reasonable long-term growth.", icon: "⚖️" },
+    { value: "aggressive",   label: "Aggressive",   desc: "Maximum growth. Comfortable with significant drawdowns for higher long-term returns.", icon: "🚀" },
+  ];
+  const horizonOpts = [
+    { value: "short",  label: "Short",  sub: "Under 3 years",  desc: "Near-term liquidity needs. Regime transitions matter more." },
+    { value: "medium", label: "Medium", sub: "3–7 years",       desc: "Balanced time horizon. Standard institutional planning cycle." },
+    { value: "long",   label: "Long",   sub: "Over 7 years",    desc: "Patient capital. Can ride through full regime cycles." },
+  ];
+  const objectiveOpts = [
+    { value: "preservation",    label: "Capital Preservation", desc: "Protect principal above all else" },
+    { value: "income",          label: "Income",               desc: "Generate regular cash yield" },
+    { value: "balanced",        label: "Balanced",             desc: "Equal weight growth and stability" },
+    { value: "growth",          label: "Growth",               desc: "Grow capital over time" },
+    { value: "maximum_growth",  label: "Maximum Growth",       desc: "Maximise long-term capital appreciation" },
+  ];
+
+  const steps = ["Risk Tolerance", "Time Horizon", "Objective", "Summary"];
+
+  const complete = () => {
+    setProfile({ ...local, completed: true });
+    onComplete();
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "100%", maxWidth: 600 }}>
+
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={{ fontFamily: T.display, fontSize: 28, fontWeight: 700, color: C.navy, marginBottom: 8 }}>GrineOS</div>
+          <div style={{ fontSize: 14, color: C.soft }}>Let's build your risk profile — takes 60 seconds.</div>
+          {/* Progress */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
+            {steps.map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: i <= step ? C.navy : C.border, color: i <= step ? "#fff" : C.soft, transition: "all 0.3s" }}>{i < step ? "✓" : i + 1}</div>
+                {i < steps.length - 1 && <div style={{ width: 32, height: 2, background: i < step ? C.navy : C.border, transition: "all 0.3s" }} />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ background: C.white, borderRadius: 16, border: `1px solid ${C.border}`, padding: 40, boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
+
+          {/* Step 0 — Risk Tolerance */}
+          {step === 0 && (
+            <div>
+              <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your risk tolerance?</h2>
+              <p style={{ fontSize: 14, color: C.soft, marginBottom: 24 }}>This determines how aggressively you follow each regime signal.</p>
+              <div style={{ display: "grid", gap: 12 }}>
+                {toleranceOpts.map(opt => (
+                  <div key={opt.value} onClick={() => setLocal({ ...local, risk_tolerance: opt.value })}
+                    style={{ padding: "16px 20px", borderRadius: 10, border: `2px solid ${local.risk_tolerance === opt.value ? C.navy : C.border}`, background: local.risk_tolerance === opt.value ? C.accentLight : C.white, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16 }}>
+                    <span style={{ fontSize: 24 }}>{opt.icon}</span>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: C.navy, marginBottom: 3 }}>{opt.label}</div>
+                      <div style={{ fontSize: 13, color: C.soft, lineHeight: 1.5 }}>{opt.desc}</div>
+                    </div>
+                    {local.risk_tolerance === opt.value && <div style={{ marginLeft: "auto", width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}>✓</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 1 — Horizon */}
+          {step === 1 && (
+            <div>
+              <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your investment horizon?</h2>
+              <p style={{ fontSize: 14, color: C.soft, marginBottom: 24 }}>Longer horizons can withstand full regime cycles. Shorter horizons need faster repositioning.</p>
+              <div style={{ display: "grid", gap: 12 }}>
+                {horizonOpts.map(opt => (
+                  <div key={opt.value} onClick={() => setLocal({ ...local, horizon: opt.value })}
+                    style={{ padding: "16px 20px", borderRadius: 10, border: `2px solid ${local.horizon === opt.value ? C.navy : C.border}`, background: local.horizon === opt.value ? C.accentLight : C.white, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", gap: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 3 }}>
+                        <span style={{ fontSize: 15, fontWeight: 600, color: C.navy }}>{opt.label}</span>
+                        <span style={{ fontSize: 12, color: C.faint, fontFamily: T.mono }}>{opt.sub}</span>
+                      </div>
+                      <div style={{ fontSize: 13, color: C.soft }}>{opt.desc}</div>
+                    </div>
+                    {local.horizon === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}>✓</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2 — Objective */}
+          {step === 2 && (
+            <div>
+              <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your primary objective?</h2>
+              <p style={{ fontSize: 14, color: C.soft, marginBottom: 24 }}>This shapes how GrineOS frames allocation guidance across all regimes.</p>
+              <div style={{ display: "grid", gap: 10 }}>
+                {objectiveOpts.map(opt => (
+                  <div key={opt.value} onClick={() => setLocal({ ...local, objective: opt.value })}
+                    style={{ padding: "14px 18px", borderRadius: 10, border: `2px solid ${local.objective === opt.value ? C.navy : C.border}`, background: local.objective === opt.value ? C.accentLight : C.white, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: C.navy, marginBottom: 2 }}>{opt.label}</div>
+                      <div style={{ fontSize: 12, color: C.soft }}>{opt.desc}</div>
+                    </div>
+                    {local.objective === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, flexShrink: 0 }}>✓</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3 — Summary */}
+          {step === 3 && (
+            <div>
+              <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>Your risk profile is ready.</h2>
+              <p style={{ fontSize: 14, color: C.soft, marginBottom: 24 }}>Every regime signal will now be calibrated to your profile.</p>
+              {/* Profile card */}
+              <div style={{ background: C.accentLight, border: `1px solid ${C.border}`, borderRadius: 10, padding: 24, marginBottom: 24 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                  {[
+                    ["Risk Tolerance", local.risk_tolerance.charAt(0).toUpperCase() + local.risk_tolerance.slice(1)],
+                    ["Horizon", local.horizon.charAt(0).toUpperCase() + local.horizon.slice(1)],
+                    ["Objective", local.objective.replace("_", " ").replace(/\b\w/g, l => l.toUpperCase())],
+                  ].map(([l, v], i) => (
+                    <div key={i}>
+                      <div style={{ fontSize: 10, color: C.faint, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4, fontFamily: T.mono }}>{l}</div>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: C.navy }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Show what SURGE means for this profile */}
+              <div style={{ background: regimeConfig.bgColor, border: `1px solid ${regimeConfig.color}33`, borderRadius: 8, padding: 16 }}>
+                <div style={{ fontSize: 10, color: regimeConfig.color, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 700, marginBottom: 6, fontFamily: T.mono }}>Current Regime: {regimeConfig.label}</div>
+                <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.5 }}>
+                  {(() => {
+                    const mult = getProfileMultiplier(regimeConfig.label, local);
+                    if (mult >= 0.90) return "Your profile supports full regime deployment — maximum risk exposure aligned with " + regimeConfig.label + ".";
+                    if (mult >= 0.70) return "Your profile allows strong participation in " + regimeConfig.label + " — moderate-to-high risk exposure recommended.";
+                    if (mult >= 0.50) return "Your profile calls for selective exposure in " + regimeConfig.label + " — balanced positioning with downside protection.";
+                    return "Your profile prioritises protection — conservative exposure even in " + regimeConfig.label + " regime conditions.";
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32 }}>
+            {step > 0
+              ? <button onClick={() => setStep(step - 1)} style={{ ...btnOutline, padding: "11px 24px" }}>← Back</button>
+              : <div />
+            }
+            {step < steps.length - 1
+              ? <button onClick={() => setStep(step + 1)} style={{ ...btnPrimary, padding: "11px 28px" }}>Continue →</button>
+              : <button onClick={complete} style={{ ...btnPrimary, padding: "11px 28px" }}>Enter Platform →</button>
+            }
+          </div>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: C.faint }}>
+          You can edit your profile at any time in Settings.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Profile Settings Panel ────────────────────────────────────────────────────
+function ProfileSettings() {
+  const { profile, setProfile, resetProfile } = useRiskProfile();
+  const { regimeConfig } = useRegime();
+  const [local, setLocal] = useState({ ...profile });
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    setProfile({ ...local, completed: true });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const mult = getProfileMultiplier(regimeConfig.label, local);
+
+  return (
+    <div style={{ padding: "32px 40px", maxWidth: 700, animation: "fadeUp .4s ease" }}>
+      <div style={{ marginBottom: 28, borderBottom: `1px solid ${C.border}`, paddingBottom: 16 }}>
+        <div style={{ fontSize: 12, color: C.soft, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 500, marginBottom: 6 }}>Settings</div>
+        <h2 style={{ fontFamily: T.display, fontSize: 26, fontWeight: 600, color: C.navy, fontStyle: "italic" }}>Risk Profile</h2>
+        <p style={{ fontSize: 14, color: C.soft, marginTop: 4 }}>Your profile calibrates all regime signals to your specific risk parameters.</p>
+      </div>
+
+      {/* Current multiplier preview */}
+      <div style={{ background: regimeConfig.bgColor, border: `1px solid ${regimeConfig.color}33`, borderRadius: 8, padding: 16, marginBottom: 28 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 11, color: regimeConfig.color, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4, fontFamily: T.mono }}>Profile Impact — {regimeConfig.label} Regime</div>
+            <div style={{ fontSize: 13, color: C.navy }}>Your profile applies a <strong>{(mult * 100).toFixed(0)}%</strong> signal multiplier in the current regime.</div>
+          </div>
+          <div style={{ fontFamily: T.display, fontSize: 32, fontWeight: 700, color: regimeConfig.color }}>{(mult * 100).toFixed(0)}%</div>
+        </div>
+        <div style={{ marginTop: 10, height: 6, background: "rgba(255,255,255,0.3)", borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ width: `${mult * 100}%`, height: "100%", background: regimeConfig.color, borderRadius: 3, transition: "width 0.4s ease" }} />
+        </div>
+      </div>
+
+      {/* Risk Tolerance */}
+      <div style={{ marginBottom: 24 }}>
+        <label style={lbl}>Risk Tolerance</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          {[["conservative", "🛡", "Conservative"], ["moderate", "⚖️", "Moderate"], ["aggressive", "🚀", "Aggressive"]].map(([val, icon, label]) => (
+            <button key={val} onClick={() => setLocal({ ...local, risk_tolerance: val })} style={{ padding: "12px 10px", borderRadius: 8, border: `2px solid ${local.risk_tolerance === val ? C.navy : C.border}`, background: local.risk_tolerance === val ? C.accentLight : C.white, cursor: "pointer", fontFamily: T.body, transition: "all 0.2s" }}>
+              <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Horizon */}
+      <div style={{ marginBottom: 24 }}>
+        <label style={lbl}>Investment Horizon</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          {[["short", "Short", "< 3 years"], ["medium", "Medium", "3–7 years"], ["long", "Long", "> 7 years"]].map(([val, label, sub]) => (
+            <button key={val} onClick={() => setLocal({ ...local, horizon: val })} style={{ padding: "12px 10px", borderRadius: 8, border: `2px solid ${local.horizon === val ? C.navy : C.border}`, background: local.horizon === val ? C.accentLight : C.white, cursor: "pointer", fontFamily: T.body, transition: "all 0.2s" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.navy, marginBottom: 2 }}>{label}</div>
+              <div style={{ fontSize: 11, color: C.faint, fontFamily: T.mono }}>{sub}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Objective */}
+      <div style={{ marginBottom: 28 }}>
+        <label style={lbl}>Primary Objective</label>
+        <select style={{ ...inp, fontSize: 14 }} value={local.objective} onChange={e => setLocal({ ...local, objective: e.target.value })}>
+          {[["preservation", "Capital Preservation"], ["income", "Income"], ["balanced", "Balanced"], ["growth", "Growth"], ["maximum_growth", "Maximum Growth"]].map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+        <button onClick={save} style={{ ...btnPrimary, padding: "11px 28px" }}>Save Profile</button>
+        <button onClick={resetProfile} style={{ ...btnOutline, padding: "11px 20px", fontSize: 12, color: C.red, borderColor: C.red + "44" }}>Reset to Default</button>
+        {saved && <span style={{ fontSize: 13, color: C.green, fontWeight: 500 }}>✓ Saved</span>}
+      </div>
+
+      {/* Regime matrix preview */}
+      <div style={{ marginTop: 32 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: C.navy, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14 }}>Your Signal Multipliers Across All Regimes</div>
+        <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", background: C.navy, padding: "10px 16px" }}>
+            {["Regime", "Base Signal", "Your Adjusted Signal"].map((h, i) => (
+              <div key={i} style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
+            ))}
+          </div>
+          {Object.entries(REGIME_PROFILE_MATRIX).map(([regime, _], i) => {
+            const m = getProfileMultiplier(regime, local);
+            const RCOLORS = { SURGE: "#16a34a", CRUISE: "#22c55e", PRESSURE: "#b45309", SLIDE: "#f97316", SHOCK: "#dc2626", FOG: "#7c3aed" };
+            const col = RCOLORS[regime] || C.soft;
+            const base = "MAX OVERWEIGHT";
+            const adjusted = getProfileSignal(base, m);
+            return (
+              <div key={regime} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", padding: "10px 16px", borderBottom: i < 5 ? `1px solid ${C.borderLight}` : "none", background: i % 2 === 0 ? C.white : "#fafbfc" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: col, fontFamily: T.mono }}>{regime}</div>
+                <div style={{ fontSize: 12, color: C.soft }}>{(m * 100).toFixed(0)}% multiplier</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: col }}>{adjusted}</div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: C.faint, marginTop: 8 }}>Equity signal shown. Other asset classes adjust proportionally.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Profile-aware Exposure Map ────────────────────────────────────────────────
+function ExposureMapPanel() {
+  const { regimeConfig } = useRegime();
+  const { profile } = useRiskProfile();
+  const exposure = regimeConfig.exposure;
+  if (!exposure || !exposure.rows) return <div style={{ color: C.soft, fontSize: 13, padding: 16, background: C.borderLight, borderRadius: 8 }}>Loading live exposure map…</div>;
+
+  const mult = getProfileMultiplier(regimeConfig.label, profile);
+  const sigColors = { "MAX OVERWEIGHT": C.green, "OVERWEIGHT": "#22c55e", "NEUTRAL": C.soft, "FLOOR": C.gold, "ELEVATED": C.gold, "UNDERWEIGHT": "#f97316", "MAX UNDERWEIGHT": C.red, "MAXIMUM": C.red };
+  const dirText = { "up2": "↑↑", "up": "↑", "--": "—", "dn": "↓", "dn2": "↓↓" };
+
+  const profileLabel = profile.risk_tolerance.charAt(0).toUpperCase() + profile.risk_tolerance.slice(1);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 600, color: C.navy, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live Exposure Map</h3>
+        <div style={{ display: "flex", gap: 6 }}>
+          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: regimeConfig.bgColor, color: regimeConfig.color, fontWeight: 600, fontFamily: T.mono }}>{regimeConfig.label}</span>
+          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: C.accentLight, color: C.navy, fontWeight: 600, fontFamily: T.mono }}>{profileLabel} · {(mult * 100).toFixed(0)}%</span>
+        </div>
+      </div>
+      <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1.4fr 1.4fr 0.5fr 0.8fr", background: C.navy, padding: "9px 14px" }}>
+          {["Asset Class", "Base Signal", "Your Signal", "Dir", "Conf"].map((h, i) => (
+            <div key={i} style={{ fontSize: 9, fontWeight: 600, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
+          ))}
+        </div>
+        {exposure.rows.map((row, i) => {
+          const adjSignal = getProfileSignal(row.signal, mult);
+          const changed = adjSignal !== row.signal;
+          return (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.8fr 1.4fr 1.4fr 0.5fr 0.8fr", padding: "9px 14px", borderBottom: i < exposure.rows.length - 1 ? `1px solid ${C.borderLight}` : "none", background: i % 2 === 0 ? C.white : "#fafbfc" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: C.navy }}>{row.asset_class}</div>
+              <div style={{ fontSize: 11, color: C.faint, fontFamily: T.mono }}>{row.signal}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: sigColors[adjSignal] || C.soft, fontFamily: T.mono, display: "flex", alignItems: "center", gap: 4 }}>
+                {adjSignal}
+                {changed && <span style={{ fontSize: 9, color: C.gold }}>↓</span>}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: sigColors[adjSignal] || C.soft }}>{dirText[row.direction] || row.direction}</div>
+              <div style={{ fontSize: 11, fontFamily: T.mono, color: C.navy, fontWeight: 600 }}>{(row.confidence * mult).toFixed(0)}%</div>
+            </div>
+          );
+        })}
+      </div>
+      {regimeConfig.narrative && (
+        <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 6, background: regimeConfig.bgColor, border: `1px solid ${regimeConfig.color}33`, fontSize: 11, fontStyle: "italic", color: C.navy, lineHeight: 1.5 }}>
+          → {regimeConfig.narrative.text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PortfoliosTab({token}){
   const[data,setData]=useState(null);const[loading,setLoading]=useState(true);const[err,setErr]=useState("");
   const{regimeConfig}=useRegime();
@@ -1450,7 +1865,7 @@ function PortfoliosTab({token}){
   );
 }
 
-const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimizer",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"analytics",label:"Analytics"},{id:"portfolios",label:"Portfolios"},{id:"alerts",label:"Alerts 🔔"},{id:"news",label:"News"},{id:"learn",label:"Learn"}];
+const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimizer",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"analytics",label:"Analytics"},{id:"portfolios",label:"Portfolios"},{id:"alerts",label:"Alerts 🔔"},{id:"profile",label:"⚙ Profile"},{id:"news",label:"News"},{id:"learn",label:"Learn"}];
 
 function AuthScreen({onAuth}){
   const[creds,setCreds]=useState({email:"kacy@grineos.com",password:"Grine2026!",tenant:"kgco"});
@@ -1585,6 +2000,7 @@ function AgentTab({token,demoP}){
   const[loading,setLoading]=useState(false);
   const{regimeConfig}=useRegime();
   const{getActivePortfolio}=usePortfolio();
+  const{profile}=useRiskProfile();
 
   const sendMessage=async()=>{
     if(!input.trim()||loading)return;
@@ -1600,7 +2016,7 @@ function AgentTab({token,demoP}){
         body:JSON.stringify({
           message:q,
           history:messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6).map(m=>({role:m.role,content:m.content})),
-          portfolio_summary:portfolio?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M — ${holdingsSummary}`:"Demo portfolio $2.00M"
+          portfolio_summary:portfolio?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M | Holdings: ${holdingsSummary} | Risk: ${profile.risk_tolerance}/${profile.horizon} horizon/${profile.objective}`:`Demo $2M | Risk: ${profile.risk_tolerance}/${profile.horizon}/${profile.objective}`
         })
       });
       const data=await res.json();
@@ -1911,10 +2327,17 @@ function Dashboard({token,userEmail,onLogout}){
   const[tab,setTab]=useState("demo");const[health,setHealth]=useState(null);const[demoP,setDemoP]=useState(null);
   const[regimeSidebarOpen,setRegimeSidebarOpen]=useState(false);
   const{regimeConfig,engineError,lastUpdated}=useRegime();
+  const{profile}=useRiskProfile();
+  const[showSetup,setShowSetup]=useState(!profile.completed);
+
   useEffect(()=>{
     fetch(`${API}/health`).then(r=>r.json()).then(setHealth).catch(()=>setHealth({status:"error"}));
     apiFetch(`${API}/api/v1/demo/portfolio`,token).then(setDemoP).catch(()=>{});
   },[token]);
+
+  // First-login setup screen
+  if(showSetup) return <RiskProfileSetup onComplete={()=>setShowSetup(false)}/>;
+
   let content;
   if(tab==="demo")content=<DemoTab demoP={demoP}/>;
   else if(tab==="agent")content=<AgentTab token={token} demoP={demoP}/>;
@@ -1924,8 +2347,9 @@ function Dashboard({token,userEmail,onLogout}){
   else if(tab==="analytics")content=<EngineTab token={token} demoP={demoP} title="Full Analytics" desc="Comprehensive risk decomposition." endpoint="/api/v1/analytics/full" controls={[]}/>;
   else if(tab==="portfolios")content=<PortfoliosTab token={token}/>;
   else if(tab==="alerts")content=<AlertPanel/>;
+  else if(tab==="profile")content=<ProfileSettings/>;
   else if(tab==="news")content=<NewsTab/>;
-  else if(tab==="learn")content=<LearnTab/>;
+  else if(tab==="learn")content=<LearnTab/>
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.body,color:C.navy,display:"flex",flexDirection:"column"}}>
       <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 32px",borderBottom:`1px solid ${C.border}`,background:C.white,flexShrink:0}}>
@@ -1936,6 +2360,14 @@ function Dashboard({token,userEmail,onLogout}){
         <div style={{display:"flex",alignItems:"center",gap:16}}>
           <button onClick={()=>setRegimeSidebarOpen(!regimeSidebarOpen)} style={{...btnOutline,padding:"6px 14px",fontSize:11,display:'flex',alignItems:'center',gap:6}}>
             <span style={{fontSize:12}}>🧠</span>Regime Intel
+          </button>
+          <button onClick={()=>setTab("profile")} style={{...btnOutline,padding:"6px 12px",fontSize:11,display:'flex',alignItems:'center',gap:6,borderColor:C.border}}>
+            <span style={{fontSize:14}}>
+              {profile.risk_tolerance==="conservative"?"🛡":profile.risk_tolerance==="aggressive"?"🚀":"⚖️"}
+            </span>
+            <span style={{fontFamily:T.mono,fontSize:10,color:C.soft}}>
+              {profile.risk_tolerance.charAt(0).toUpperCase()+profile.risk_tolerance.slice(1)} · {profile.horizon.charAt(0).toUpperCase()+profile.horizon.slice(1)}
+            </span>
           </button>
           <span style={{fontSize:12,color:C.soft}}>KG&Co Capital Advisory · London · New York</span>
           <div style={{width:1,height:16,background:C.border}}/>
@@ -1962,12 +2394,24 @@ function Dashboard({token,userEmail,onLogout}){
 }
 
 function App(){
-  const[token,setToken]=useState(null);const[email,setEmail]=useState("");const[showLanding,setShowLanding]=useState(true);
-  if(showLanding&&!token)return<RegimeProvider><PortfolioProvider><EducationalLanding onEnterPlatform={()=>setShowLanding(false)}/></PortfolioProvider></RegimeProvider>;
+  const[token,setToken]=useState(null);
+  const[email,setEmail]=useState("");
+  const[showLanding,setShowLanding]=useState(true);
+
+  if(showLanding&&!token){
+    return(
+      <RegimeProvider><RiskProfileProvider><PortfolioProvider>
+        <EducationalLanding onEnterPlatform={()=>setShowLanding(false)}/>
+      </PortfolioProvider></RiskProfileProvider></RegimeProvider>
+    );
+  }
   return(
-    <RegimeProvider><PortfolioProvider>
-      {token?<Dashboard token={token} userEmail={email} onLogout={()=>{setToken(null);setEmail("");setShowLanding(true);}}/>:<AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);}}/>}
-    </PortfolioProvider></RegimeProvider>
+    <RegimeProvider><RiskProfileProvider><PortfolioProvider>
+      {token
+        ?<Dashboard token={token} userEmail={email} onLogout={()=>{setToken(null);setEmail("");setShowLanding(true);}}/>
+        :<AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);}}/>
+      }
+    </PortfolioProvider></RiskProfileProvider></RegimeProvider>
   );
 }
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
