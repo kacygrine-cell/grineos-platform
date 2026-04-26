@@ -87,7 +87,7 @@ const RegimeContext=createContext();
 const useRegime=()=>useContext(RegimeContext);
 const PortfolioContext=createContext();
 const usePortfolio=()=>useContext(PortfolioContext);
-// ── Engine A live hook ────────────────────────────────────────────────────────
+// -- Engine A live hook --------------------------------------------------------
 function useEngineA(){
   const[summary,setSummary]=useState(null);
   const[loading,setLoading]=useState(true);
@@ -148,13 +148,13 @@ function RegimeProvider({children}){
   return <RegimeContext.Provider value={{regime,setRegime:()=>{},isRegimeActive,setIsRegimeActive,regimeConfig:liveConfig,engineLoading:loading,engineError:error,lastUpdated,refresh}}>{children}</RegimeContext.Provider>;
 }
 
-// ── Live Exposure Map panel ───────────────────────────────────────────────────
+// -- Live Exposure Map panel ---------------------------------------------------
 function ExposureMapPanel(){
   const{regimeConfig}=useRegime();
   const exposure=regimeConfig.exposure;
-  if(!exposure||!exposure.rows)return<div style={{color:C.soft,fontSize:13,padding:16,background:C.borderLight,borderRadius:8}}>Loading live exposure map…</div>;
+  if(!exposure||!exposure.rows)return<div style={{color:C.soft,fontSize:13,padding:16,background:C.borderLight,borderRadius:8}}>Loading live exposure map </div>;
   const sigColors={"MAX OVERWEIGHT":C.green,"OVERWEIGHT":"#22c55e","NEUTRAL":C.soft,"FLOOR":C.gold,"ELEVATED":C.gold,"UNDERWEIGHT":"#f97316","MAX UNDERWEIGHT":C.red,"MAXIMUM":C.red};
-  const dirText={"up2":"↑↑","up":"↑","--":"—","dn":"↓","dn2":"↓↓"};
+  const dirText={"up2":"  ","up":" ","--":"-","dn":" ","dn2":"  "};
   return(
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -177,14 +177,14 @@ function ExposureMapPanel(){
       </div>
       {regimeConfig.narrative&&(
         <div style={{marginTop:10,padding:"9px 12px",borderRadius:6,background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,fontSize:11,fontStyle:"italic",color:C.navy,lineHeight:1.5}}>
-          → {regimeConfig.narrative.text}
+          -> {regimeConfig.narrative.text}
         </div>
       )}
     </div>
   );
 }
 
-// ── Live Driver Panel ─────────────────────────────────────────────────────────
+// -- Live Driver Panel ---------------------------------------------------------
 function DriverPanel(){
   const{regimeConfig}=useRegime();
   const drivers=regimeConfig.drivers||{};
@@ -204,7 +204,7 @@ function DriverPanel(){
                 <div style={{width:`${Math.abs(d.score)/2*100}%`,height:"100%",background:color,borderRadius:2}}/>
               </div>
               <div style={{fontSize:9,fontFamily:T.mono,color}}>
-                {d.trend==="rising"?"↑":d.trend==="falling"?"↓":"→"} {d.score>0?"+":""}{d.score.toFixed(2)}σ
+                {d.trend==="rising"?" ":d.trend==="falling"?" ":"->"} {d.score>0?"+":""}{d.score.toFixed(2)}s
               </div>
             </div>
           );
@@ -214,7 +214,7 @@ function DriverPanel(){
   );
 }
 
-// ── 90-day Regime Timeline ────────────────────────────────────────────────────
+// -- 90-day Regime Timeline ----------------------------------------------------
 function RegimeTimeline(){
   const[history,setHistory]=useState([]);
   useEffect(()=>{
@@ -226,7 +226,7 @@ function RegimeTimeline(){
       <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6,fontFamily:T.mono}}>90-Day Regime History</div>
       <div style={{height:12,borderRadius:4,overflow:"hidden",display:"flex"}}>
         {history.map((r,i)=>(
-          <div key={i} title={`${new Date(r.date).toLocaleDateString()} — ${r.regime}`}
+          <div key={i} title={`${new Date(r.date).toLocaleDateString()} - ${r.regime}`}
             style={{flex:1,background:REGIME_COLORS[r.regime]||C.soft,opacity:0.75,transition:"opacity 0.2s",cursor:"default"}}
             onMouseEnter={e=>e.target.style.opacity="1"} onMouseLeave={e=>e.target.style.opacity="0.75"}/>
         ))}
@@ -266,8 +266,8 @@ function PortfolioProvider({children}){
   });
   const normalizeHoldings=(holdings,totalValue)=>(holdings||[]).map(h=>({
     ...h,
-    ticker: h.ticker||h.symbol||"—",
-    name: h.name||h.security_name||h.description||"—",
+    ticker: h.ticker||h.symbol||"-",
+    name: h.name||h.security_name||h.description||"-",
     assetClass: h.assetClass||h.asset_class||h.type||"Equity",
     weight: parseFloat(h.weight||h.weight_pct||h.allocation||0)||0,
     value: isFinite(h.value)&&h.value>0 ? h.value
@@ -275,7 +275,7 @@ function PortfolioProvider({children}){
          : ((parseFloat(h.weight||h.weight_pct||h.allocation||0))/100)*(totalValue||0)
   }));
 
-  // Normalize backend response — handles snake_case from Railway API
+  // Normalize backend response - handles snake_case from Railway API
   const normalizePortfolio=(p)=>{
     if(!p)return null;
     const totalValue=p.totalValue||p.total_value||p.portfolio_value||2000000;
@@ -293,7 +293,7 @@ function PortfolioProvider({children}){
   return <PortfolioContext.Provider value={{useCustomPortfolio,setUseCustomPortfolio,customPortfolio,setCustomPortfolio,getActivePortfolio}}>{children}</PortfolioContext.Provider>;
 }
 
-/* ═══ REDESIGNED EDUCATIONAL LANDING ═══ */
+/*     REDESIGNED EDUCATIONAL LANDING     */
 function EducationalLanding({onEnterPlatform}){
   const[activeSection,setActiveSection]=useState('regimes');
   const[hoveredRegime,setHoveredRegime]=useState(null);
@@ -326,32 +326,32 @@ function EducationalLanding({onEnterPlatform}){
 
   // Build dynamic ticker from live data
   const tickerItems=[
-    `${liveCode}  ·  ${liveConf.toFixed(0)}% CONFIDENCE`,
+    `${liveCode}  .  ${liveConf.toFixed(0)}% CONFIDENCE`,
     `GROWTH ${liveDrivers.growth?.score>=0?'ACCELERATING':'DECELERATING'}`,
     `INFLATION ${liveDrivers.inflation?.label||'CONTAINED'}`,
     `LIQUIDITY ${liveDrivers.liquidity?.label||'ABUNDANT'}`,
     `VOLATILITY ${liveDrivers.volatility?.label||'SUPPRESSED'}`,
     `DURATION ${regimeConfig.duration||0} DAYS`,
-    "REGIME ENGINE  ·  ACTIVE","NEXT REVIEW  ·  30D",
-    `${liveCode}  ·  ${liveConf.toFixed(0)}% CONFIDENCE`,
+    "REGIME ENGINE  .  ACTIVE","NEXT REVIEW  .  30D",
+    `${liveCode}  .  ${liveConf.toFixed(0)}% CONFIDENCE`,
     `GROWTH ${liveDrivers.growth?.score>=0?'ACCELERATING':'DECELERATING'}`,
     `INFLATION ${liveDrivers.inflation?.label||'CONTAINED'}`,
     `LIQUIDITY ${liveDrivers.liquidity?.label||'ABUNDANT'}`,
     `VOLATILITY ${liveDrivers.volatility?.label||'SUPPRESSED'}`,
     `DURATION ${regimeConfig.duration||0} DAYS`,
-    "REGIME ENGINE  ·  ACTIVE","NEXT REVIEW  ·  30D",
+    "REGIME ENGINE  .  ACTIVE","NEXT REVIEW  .  30D",
   ];
 
   const processSteps=[
-    {num:"01",title:"Detect",desc:"Proprietary regime detection engine classifies market environment across volatility, momentum and liquidity dimensions — updated continuously.",icon:"◉"},
-    {num:"02",title:"Analyse",desc:"Risk decomposition, factor attribution and scenario stress-testing applied through the lens of the current market regime.",icon:"◈"},
-    {num:"03",title:"Allocate",desc:"Regime-constrained optimiser generates target weights that are mathematically consistent with current market conditions.",icon:"◆"}
+    {num:"01",title:"Detect",desc:"Proprietary regime detection engine classifies market environment across volatility, momentum and liquidity dimensions - updated continuously.",icon:" "},
+    {num:"02",title:"Analyse",desc:"Risk decomposition, factor attribution and scenario stress-testing applied through the lens of the current market regime.",icon:" "},
+    {num:"03",title:"Allocate",desc:"Regime-constrained optimiser generates target weights that are mathematically consistent with current market conditions.",icon:" "}
   ];
 
   const regimeData=[
-    {key:'expansion',color:"#16a34a",bg:"rgba(22,163,74,0.06)",border:"rgba(22,163,74,0.18)",label:"EXPANSION",tagline:"Risk-on. Full deployment.",desc:"Low volatility, positive momentum, abundant liquidity. Risk assets outperform. Maximum allowable equity exposure.",chars:["VIX below 20","Rising asset prices","Tight credit spreads","High investor confidence"],alloc:"Overweight equities — reduce defensives",maxEq:"80%",minCash:"2%"},
-    {key:'protection',color:"#dc2626",bg:"rgba(220,38,38,0.06)",border:"rgba(220,38,38,0.18)",label:"PROTECTION",tagline:"Capital preservation first.",desc:"High volatility, negative momentum, liquidity stress. Defensive positioning critical. Significant de-risking required.",chars:["VIX above 30","Falling asset prices","Wide credit spreads","Flight to quality"],alloc:"Overweight bonds & cash — reduce equities",maxEq:"50%",minCash:"15%"},
-    {key:'transition',color:"#b45309",bg:"rgba(180,83,9,0.06)",border:"rgba(180,83,9,0.18)",label:"TRANSITION",tagline:"Navigate the uncertainty.",desc:"Mixed signals, regime uncertainty. Balanced approach required with elevated tactical management and scenario awareness.",chars:["VIX 20–30","Choppy, directionless markets","Unstable correlations","High dispersion"],alloc:"Balanced — active rebalancing discipline",maxEq:"65%",minCash:"8%"}
+    {key:'expansion',color:"#16a34a",bg:"rgba(22,163,74,0.06)",border:"rgba(22,163,74,0.18)",label:"EXPANSION",tagline:"Risk-on. Full deployment.",desc:"Low volatility, positive momentum, abundant liquidity. Risk assets outperform. Maximum allowable equity exposure.",chars:["VIX below 20","Rising asset prices","Tight credit spreads","High investor confidence"],alloc:"Overweight equities - reduce defensives",maxEq:"80%",minCash:"2%"},
+    {key:'protection',color:"#dc2626",bg:"rgba(220,38,38,0.06)",border:"rgba(220,38,38,0.18)",label:"PROTECTION",tagline:"Capital preservation first.",desc:"High volatility, negative momentum, liquidity stress. Defensive positioning critical. Significant de-risking required.",chars:["VIX above 30","Falling asset prices","Wide credit spreads","Flight to quality"],alloc:"Overweight bonds & cash - reduce equities",maxEq:"50%",minCash:"15%"},
+    {key:'transition',color:"#b45309",bg:"rgba(180,83,9,0.06)",border:"rgba(180,83,9,0.18)",label:"TRANSITION",tagline:"Navigate the uncertainty.",desc:"Mixed signals, regime uncertainty. Balanced approach required with elevated tactical management and scenario awareness.",chars:["VIX 20-30","Choppy, directionless markets","Unstable correlations","High dispersion"],alloc:"Balanced - active rebalancing discipline",maxEq:"65%",minCash:"8%"}
   ];
 
   const stats=[
@@ -364,7 +364,7 @@ function EducationalLanding({onEnterPlatform}){
   return(
     <div style={{fontFamily:T.body,color:C.navy,background:C.white}}>
 
-      {/* ── HERO ── */}
+      {/* -- HERO -- */}
       <div className="landing-hero">
         <div className="hero-noise"/>
         <div className="hero-grid"/>
@@ -391,7 +391,7 @@ function EducationalLanding({onEnterPlatform}){
             }}
               onMouseEnter={e=>{e.target.style.background='rgba(255,255,255,0.15)';e.target.style.borderColor='rgba(255,255,255,0.35)'}}
               onMouseLeave={e=>{e.target.style.background='rgba(255,255,255,0.08)';e.target.style.borderColor='rgba(255,255,255,0.2)'}}
-            >Enter Platform →</button>
+            >Enter Platform -></button>
           </div>
         </nav>
 
@@ -403,7 +403,7 @@ function EducationalLanding({onEnterPlatform}){
             <div style={{display:'inline-flex',alignItems:'center',gap:10,padding:'6px 14px',borderRadius:100,border:`1px solid ${liveColor}44`,background:`${liveColor}12`,marginBottom:36,animation:'fadeIn 0.8s ease 0.2s both'}}>
               <span className="regime-live-dot" style={{background:liveColor}}/>
               <span style={{fontSize:11,fontWeight:600,letterSpacing:'0.1em',color:liveColor,textTransform:'uppercase',fontFamily:T.mono}}>
-                {liveCode} Regime · {liveConf.toFixed(0)}% Confidence
+                {liveCode} Regime . {liveConf.toFixed(0)}% Confidence
               </span>
             </div>
 
@@ -434,18 +434,18 @@ function EducationalLanding({onEnterPlatform}){
                 onMouseEnter={e=>e.target.style.transform='translateY(-1px)'}
                 onMouseLeave={e=>e.target.style.transform='translateY(0)'}
               >Enter the Platform</button>
-              <span style={{fontSize:13,color:'rgba(255,255,255,0.3)',fontWeight:300}}>No setup required · Live demo available</span>
+              <span style={{fontSize:13,color:'rgba(255,255,255,0.3)',fontWeight:300}}>No setup required . Live demo available</span>
             </div>
           </div>
 
-          {/* Right — Regime card widget */}
+          {/* Right - Regime card widget */}
           <div style={{animation:'fadeUp 0.9s ease 0.5s both'}}>
             <div style={{
               background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)',
               borderRadius:16,padding:28,backdropFilter:'blur(12px)'
             }}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,paddingBottom:16,borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-                <span style={{fontSize:10,letterSpacing:'0.12em',color:'rgba(255,255,255,0.4)',textTransform:'uppercase',fontFamily:T.mono}}>Regime Dashboard · Live</span>
+                <span style={{fontSize:10,letterSpacing:'0.12em',color:'rgba(255,255,255,0.4)',textTransform:'uppercase',fontFamily:T.mono}}>Regime Dashboard . Live</span>
                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                   <span style={{width:6,height:6,borderRadius:'50%',background:'#16a34a',display:'inline-block',animation:'pulse 2s infinite'}}/>
                   <span style={{fontSize:11,color:'rgba(255,255,255,0.4)',fontFamily:T.mono}}>AUTO</span>
@@ -466,9 +466,9 @@ function EducationalLanding({onEnterPlatform}){
               {/* Signal grid */}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
                 {[
-                  ['VOL', liveDrivers.volatility?.label||'Low', liveDrivers.volatility?.score<0?'↓':'↑', liveDrivers.volatility?.score<0?'#16a34a':'#dc2626'],
-                  ['GRW', liveDrivers.growth?.label||'Positive', liveDrivers.growth?.score>0?'↑':'↓', liveDrivers.growth?.score>0?'#16a34a':'#dc2626'],
-                  ['LIQ', liveDrivers.liquidity?.label||'Abundant', liveDrivers.liquidity?.score>0?'↑':'↓', liveDrivers.liquidity?.score>0?'#16a34a':'#dc2626'],
+                  ['VOL', liveDrivers.volatility?.label||'Low', liveDrivers.volatility?.score<0?' ':' ', liveDrivers.volatility?.score<0?'#16a34a':'#dc2626'],
+                  ['GRW', liveDrivers.growth?.label||'Positive', liveDrivers.growth?.score>0?' ':' ', liveDrivers.growth?.score>0?'#16a34a':'#dc2626'],
+                  ['LIQ', liveDrivers.liquidity?.label||'Abundant', liveDrivers.liquidity?.score>0?' ':' ', liveDrivers.liquidity?.score>0?'#16a34a':'#dc2626'],
                 ].map(([k,v,arr,col],i)=>(
                   <div key={i} style={{background:'rgba(255,255,255,0.04)',borderRadius:8,padding:12}}>
                     <div style={{fontSize:9,letterSpacing:'0.1em',color:'rgba(255,255,255,0.35)',textTransform:'uppercase',marginBottom:6,fontFamily:T.mono}}>{k}</div>
@@ -507,7 +507,7 @@ function EducationalLanding({onEnterPlatform}){
         </div>
       </div>
 
-      {/* ── STATS BAR ── */}
+      {/* -- STATS BAR -- */}
       <div style={{background:C.navy,padding:'40px 64px'}}>
         <div style={{maxWidth:1200,margin:'0 auto',display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:0}}>
           {stats.map((s,i)=>(
@@ -524,7 +524,7 @@ function EducationalLanding({onEnterPlatform}){
         </div>
       </div>
 
-      {/* ── HOW IT WORKS ── */}
+      {/* -- HOW IT WORKS -- */}
       <div className="section-enter" style={{padding:'96px 64px',maxWidth:1200,margin:'0 auto'}}>
         <div style={{marginBottom:64}}>
           <div style={{fontSize:11,letterSpacing:'0.14em',color:C.soft,textTransform:'uppercase',fontWeight:600,marginBottom:16,fontFamily:T.mono}}>The Framework</div>
@@ -553,7 +553,7 @@ function EducationalLanding({onEnterPlatform}){
         </div>
       </div>
 
-      {/* ── REGIME SECTION ── */}
+      {/* -- REGIME SECTION -- */}
       <div style={{background:'#fafafa',borderTop:'1px solid '+C.border,borderBottom:'1px solid '+C.border}}>
         <div className="section-enter" style={{padding:'80px 64px',maxWidth:1200,margin:'0 auto'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:48}}>
@@ -622,12 +622,12 @@ function EducationalLanding({onEnterPlatform}){
             }}
               onMouseEnter={e=>{e.target.style.background=C.navy;e.target.style.color='#fff'}}
               onMouseLeave={e=>{e.target.style.background='transparent';e.target.style.color=C.navy}}
-            >See live regime in platform →</button>
+            >See live regime in platform -></button>
           </div>
         </div>
       </div>
 
-      {/* ── KEY METRICS ── */}
+      {/* -- KEY METRICS -- */}
       <div className="section-enter" style={{padding:'96px 64px',maxWidth:1200,margin:'0 auto'}}>
         <div style={{display:'grid',gridTemplateColumns:'360px 1fr',gap:80,alignItems:'start'}}>
           <div>
@@ -635,7 +635,7 @@ function EducationalLanding({onEnterPlatform}){
             <h2 style={{fontFamily:T.display,fontSize:'clamp(28px,3.5vw,42px)',fontWeight:600,color:C.navy,lineHeight:1.15,letterSpacing:'-0.02em',marginBottom:20}}>
               Institutional-grade<br/>risk intelligence.
             </h2>
-            <p style={{fontSize:14,lineHeight:1.7,color:C.soft,fontWeight:300,marginBottom:32}}>Every metric in GrineOS is regime-contextualised — so you see not just the number, but whether that number is elevated or subdued relative to the current market state.</p>
+            <p style={{fontSize:14,lineHeight:1.7,color:C.soft,fontWeight:300,marginBottom:32}}>Every metric in GrineOS is regime-contextualised - so you see not just the number, but whether that number is elevated or subdued relative to the current market state.</p>
             <button onClick={onEnterPlatform} style={{
               padding:'12px 28px',borderRadius:8,border:`1px solid ${C.navy}`,
               background:'transparent',color:C.navy,fontSize:13,fontWeight:600,
@@ -643,14 +643,14 @@ function EducationalLanding({onEnterPlatform}){
             }}
               onMouseEnter={e=>{e.target.style.background=C.navy;e.target.style.color='#fff'}}
               onMouseLeave={e=>{e.target.style.background='transparent';e.target.style.color=C.navy}}
-            >Explore the Platform →</button>
+            >Explore the Platform -></button>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
             {[
-              {term:"Sharpe Ratio",formula:"(R − Rf) / σ",desc:"Risk-adjusted return efficiency. Measures excess return per unit of volatility taken.",good:"> 1.0"},
-              {term:"Max Drawdown",formula:"Peak → Trough",desc:"Largest cumulative loss from peak to trough over any period in the backtest.",good:"< 15%"},
+              {term:"Sharpe Ratio",formula:"(R   Rf) / s",desc:"Risk-adjusted return efficiency. Measures excess return per unit of volatility taken.",good:"> 1.0"},
+              {term:"Max Drawdown",formula:"Peak -> Trough",desc:"Largest cumulative loss from peak to trough over any period in the backtest.",good:"< 15%"},
               {term:"Regime Confidence",formula:"P(state | signals)",desc:"Bayesian posterior probability of current regime given observed market signals.",good:"> 80%"},
-              {term:"Effective N",formula:"1 / Σwᵢ²",desc:"Herfindahl-equivalent measure of true diversification across portfolio holdings.",good:"> 5 names"}
+              {term:"Effective N",formula:"1 /  w  ",desc:"Herfindahl-equivalent measure of true diversification across portfolio holdings.",good:"> 5 names"}
             ].map((m,i)=>(
               <div key={i} style={{
                 background:C.white,border:'1px solid '+C.border,borderRadius:10,padding:22,
@@ -672,7 +672,7 @@ function EducationalLanding({onEnterPlatform}){
         </div>
       </div>
 
-      {/* ── BUILT FOR ── */}
+      {/* -- BUILT FOR -- */}
       <div style={{background:C.navy,padding:'72px 64px'}}>
         <div style={{maxWidth:1200,margin:'0 auto'}}>
           <div style={{textAlign:'center',marginBottom:48}}>
@@ -683,9 +683,9 @@ function EducationalLanding({onEnterPlatform}){
           </div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:1,background:'rgba(255,255,255,0.06)',borderRadius:12,overflow:'hidden'}}>
             {[
-              {who:"Wealth Platforms",icon:"◈",desc:"Embed regime intelligence into client-facing allocation tools and model portfolio delivery."},
-              {who:"Family Offices",icon:"◆",desc:"Single-family and multi-family offices seeking a systematic, auditable allocation framework."},
-              {who:"RIAs & IARs",icon:"◉",desc:"Registered advisers who need institutional-grade portfolio analytics and regime-aware rebalancing."}
+              {who:"Wealth Platforms",icon:" ",desc:"Embed regime intelligence into client-facing allocation tools and model portfolio delivery."},
+              {who:"Family Offices",icon:" ",desc:"Single-family and multi-family offices seeking a systematic, auditable allocation framework."},
+              {who:"RIAs & IARs",icon:" ",desc:"Registered advisers who need institutional-grade portfolio analytics and regime-aware rebalancing."}
             ].map((item,i)=>(
               <div key={i} style={{
                 padding:'36px 32px',background:'rgba(255,255,255,0.02)',
@@ -704,14 +704,14 @@ function EducationalLanding({onEnterPlatform}){
         </div>
       </div>
 
-      {/* ── FINAL CTA ── */}
+      {/* -- FINAL CTA -- */}
       <div className="section-enter" style={{padding:'96px 64px',textAlign:'center',maxWidth:800,margin:'0 auto'}}>
         <div style={{fontSize:11,letterSpacing:'0.14em',color:C.soft,textTransform:'uppercase',fontWeight:600,marginBottom:20,fontFamily:T.mono}}>Ready to explore?</div>
         <h2 style={{fontFamily:T.display,fontSize:'clamp(32px,4vw,52px)',fontWeight:600,color:C.navy,lineHeight:1.1,letterSpacing:'-0.02em',marginBottom:24}}>
           Enter the platform.<br/><span style={{fontStyle:'italic',color:C.soft}}>See the regime engine live.</span>
         </h2>
         <p style={{fontSize:16,color:C.soft,lineHeight:1.65,fontWeight:300,marginBottom:40}}>
-          A fully-functional demo portfolio is pre-loaded. No configuration needed — explore the optimizer, backtest engine, scenario stress-tester and AI agent immediately.
+          A fully-functional demo portfolio is pre-loaded. No configuration needed - explore the optimizer, backtest engine, scenario stress-tester and AI agent immediately.
         </p>
         <button onClick={onEnterPlatform} style={{
           padding:'16px 40px',borderRadius:8,border:'none',
@@ -721,23 +721,23 @@ function EducationalLanding({onEnterPlatform}){
         }}
           onMouseEnter={e=>{e.target.style.transform='translateY(-2px)';e.target.style.boxShadow='0 8px 32px rgba(26,35,50,0.2)'}}
           onMouseLeave={e=>{e.target.style.transform='translateY(0)';e.target.style.boxShadow='0 4px 24px rgba(26,35,50,0.15)'}}
-        >Enter GrineOS Platform →</button>
+        >Enter GrineOS Platform -></button>
       </div>
 
-      {/* ── FOOTER ── */}
+      {/* -- FOOTER -- */}
       <div style={{borderTop:'1px solid '+C.border,padding:'28px 64px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{fontSize:12,color:C.faint}}>KG&Co Capital Advisory · Powered by Grine Technologies Ltd</div>
+        <div style={{fontSize:12,color:C.faint}}>KG&Co Capital Advisory . Powered by Grine Technologies Ltd</div>
         <div style={{fontSize:12,color:C.faint}}>Regime intelligence for institutional allocation decisions</div>
       </div>
     </div>
   );
 }
 
-/* ═══ REGIME TOP BAR ═══ */
+/*     REGIME TOP BAR     */
 function RegimeTopBar(){
   const{regime,setRegime,regimeConfig,engineError,lastUpdated,refresh}=useRegime();
   const color=regimeConfig.color;
-  const driverSymbols={volatility:regime.drivers.volatility<0?'↓':'↑',momentum:regime.drivers.momentum>0?'↑':'↓',liquidity:regime.drivers.liquidity>0?'↑':'↓'};
+  const driverSymbols={volatility:regime.drivers.volatility<0?' ':' ',momentum:regime.drivers.momentum>0?' ':' ',liquidity:regime.drivers.liquidity>0?' ':' '};
   const driverColors={volatility:regime.drivers.volatility<0?'#16a34a':'#dc2626',momentum:regime.drivers.momentum>0?'#16a34a':'#dc2626',liquidity:regime.drivers.liquidity>0?'#16a34a':'#dc2626'};
   const transitions={expansion:0.73,protection:0.12,transition:0.15};
   // Use live transition data if available
@@ -762,7 +762,7 @@ function RegimeTopBar(){
               <div key={k} style={{display:'flex',alignItems:'center',gap:4}}>
                 <span style={{opacity:0.6}}>{k.slice(0,3).toUpperCase()}</span>
                 <span style={{color:driverColors[k],fontWeight:600}}>{driverSymbols[k]}</span>
-                <span style={{opacity:0.8,fontSize:9}}>{Math.abs(regime.drivers[k]).toFixed(1)}σ</span>
+                <span style={{opacity:0.8,fontSize:9}}>{Math.abs(regime.drivers[k]).toFixed(1)}s</span>
               </div>
             ))}
           </div>
@@ -784,7 +784,7 @@ function RegimeTopBar(){
             <span style={{width:6,height:6,borderRadius:'50%',background:engineError?'#dc2626':'#16a34a',display:'inline-block'}}/>
             <span style={{fontSize:9,fontFamily:T.mono,letterSpacing:'0.1em',opacity:0.8}}>{engineError?"OFFLINE":"LIVE"}</span>
           </div>
-          <button onClick={refresh} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:'4px 6px'}} title="Refresh Engine A">↺</button>
+          <button onClick={refresh} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:'4px 6px'}} title="Refresh Engine A"> </button>
           <div style={{display:'flex',backgroundColor:C.navyLight,borderRadius:4,overflow:'hidden'}}>
             {['auto','manual'].map(m=>(
               <button key={m} style={{padding:'6px 12px',fontSize:11,fontWeight:600,border:'none',cursor:'pointer',backgroundColor:regime.mode===m?'#fff':'transparent',color:regime.mode===m?C.navy:'#fff',transition:'all 0.2s',textTransform:'uppercase'}} onClick={()=>setRegime({...regime,mode:m})}>{m.toUpperCase()}</button>
@@ -806,7 +806,7 @@ function RegimeTopBar(){
           <div>
             <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.6,marginBottom:8}}>Signal Strength</div>
             {[['Volatility',regime.drivers.volatility>0?'High':'Low',driverColors.volatility,regime.drivers.volatility],['Momentum',regime.drivers.momentum>0?'Positive':'Negative',driverColors.momentum,regime.drivers.momentum],['Liquidity',regime.drivers.liquidity>0?'Abundant':'Tight',driverColors.liquidity,regime.drivers.liquidity]].map(([label,txt,color,val],i)=>(
-              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{label}: </span><span style={{color,fontWeight:600}}>{txt} </span><span style={{opacity:0.6,fontSize:10}}>({val.toFixed(1)}σ)</span></div>
+              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{label}: </span><span style={{color,fontWeight:600}}>{txt} </span><span style={{opacity:0.6,fontSize:10}}>({val.toFixed(1)}s)</span></div>
             ))}
           </div>
           <div>
@@ -834,12 +834,12 @@ function RegimeAnalysisSidebar({isOpen,onToggle}){
     <div style={{position:'fixed',right:0,top:0,width:400,height:'100vh',background:C.white,borderLeft:`2px solid ${regimeConfig.color}`,boxShadow:'-4px 0 12px rgba(0,0,0,0.1)',zIndex:100,overflow:'auto',padding:24}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24,paddingBottom:16,borderBottom:`1px solid ${C.border}`}}>
         <h3 style={{fontFamily:T.display,fontSize:20,fontWeight:600,color:C.navy}}>Regime Intelligence</h3>
-        <button onClick={onToggle} style={{background:'none',border:'none',fontSize:18,color:C.soft,cursor:'pointer',padding:4}}>×</button>
+        <button onClick={onToggle} style={{background:'none',border:'none',fontSize:18,color:C.soft,cursor:'pointer',padding:4}}>x</button>
       </div>
       <div style={{background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,borderRadius:8,padding:16,marginBottom:24}}>
         <h4 style={{fontSize:14,fontWeight:600,color:regimeConfig.color,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.08em'}}>{regimeConfig.label} Regime</h4>
         <p style={{fontSize:13,lineHeight:1.5,color:C.navy,marginBottom:12}}>{regimeConfig.description}</p>
-        <div style={{fontSize:12,color:C.soft}}>Confidence: {Math.round(regime.confidence)}% · Duration: 127 days</div>
+        <div style={{fontSize:12,color:C.soft}}>Confidence: {Math.round(regime.confidence)}% . Duration: 127 days</div>
       </div>
       <div style={{marginBottom:24}}>
         <h4 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:12,textTransform:'uppercase',letterSpacing:'0.08em'}}>Transition Probabilities (30D)</h4>
@@ -906,7 +906,7 @@ const Spin=({size=14,dark})=><span style={{display:"inline-block",width:size,hei
 const Dot=({ok})=><span style={{display:"inline-block",width:7,height:7,borderRadius:"50%",background:ok?C.green:C.red,marginRight:8}}/>;
 const Tag=({children,color=C.navy})=><span style={{display:"inline-block",padding:"3px 10px",borderRadius:4,fontSize:10,fontWeight:600,letterSpacing:"0.06em",background:`${color}10`,color,fontFamily:T.mono,textTransform:"uppercase"}}>{children}</span>;
 
-/* ═══ FIX 1: DONUT CHART — sanitize + full-circle guard ═══ */
+/*     FIX 1: DONUT CHART - sanitize + full-circle guard     */
 function DonutChart({data,size=180,thickness=28,totalValue}){
   let chartData;
   if(Array.isArray(data)){chartData=data;}
@@ -974,7 +974,7 @@ function NewsWidget({title="Market Intelligence",maxItems=3}){
     <div style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:8,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <h4 style={{fontSize:14,fontWeight:600,color:C.navy,textTransform:"uppercase",letterSpacing:"0.08em"}}>{title}</h4>
-        <a href="#" onClick={e=>e.preventDefault()} style={{fontSize:11,color:regimeConfig.color,textDecoration:'none',fontWeight:600}}>View All →</a>
+        <a href="#" onClick={e=>e.preventDefault()} style={{fontSize:11,color:regimeConfig.color,textDecoration:'none',fontWeight:600}}>View All -></a>
       </div>
       <div style={{display:'grid',gap:8}}>
         {relevant.map((story,i)=>(
@@ -1080,7 +1080,7 @@ function LearnTab(){
             <div key={i} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:8,padding:20}}>
               <h4 style={{fontSize:16,fontWeight:600,color:C.navy,marginBottom:8}}>{f.title}</h4>
               <p style={{fontSize:14,color:C.soft,marginBottom:12,lineHeight:1.5}}>{f.desc}</p>
-              {f.features.map((feat,j)=><div key={j} style={{fontSize:12,color:C.navy,marginBottom:4,paddingLeft:12,position:'relative'}}><span style={{position:'absolute',left:0,color:C.green}}>✓</span>{feat}</div>)}
+              {f.features.map((feat,j)=><div key={j} style={{fontSize:12,color:C.navy,marginBottom:4,paddingLeft:12,position:'relative'}}><span style={{position:'absolute',left:0,color:C.green}}> </span>{feat}</div>)}
             </div>
           ))}
         </div>
@@ -1092,7 +1092,7 @@ function LearnTab(){
               <div style={{position:'absolute',top:0,left:0,right:0,height:4,background:r.color,borderRadius:'12px 12px 0 0'}}/>
               <h4 style={{fontSize:18,fontWeight:700,color:r.color,marginBottom:10,fontFamily:T.display}}>{r.label}</h4>
               <p style={{fontSize:14,color:C.navy,lineHeight:1.5,marginBottom:12}}>{r.description}</p>
-              <div style={{fontSize:12,color:C.soft}}>Max Equity: {(r.equityMax*100).toFixed(0)}% · Min Cash: {(r.cashMin*100).toFixed(0)}%</div>
+              <div style={{fontSize:12,color:C.soft}}>Max Equity: {(r.equityMax*100).toFixed(0)}% . Min Cash: {(r.cashMin*100).toFixed(0)}%</div>
             </div>
           ))}
         </div>
@@ -1169,7 +1169,7 @@ function AnalyticsResult({data,regimeAdjustment}){
     {label:"Portfolio Volatility",value:`${(portfolioVol*100).toFixed(1)}%`,color:C.gold,regime:!!regimeAdjustment&&regimeAdjustment?{color:regimeAdjustment.regime==='expansion'?C.green:C.red,impact:((regimeAdjustment.risk_impact||0)*100).toFixed(1)}:null},
     {label:"Portfolio VaR",value:`${(Math.abs(portfolioVar)*100).toFixed(1)}%`,color:C.red,regime:null},
     {label:"Tracking Error",value:`${(trackingError*100).toFixed(1)}%`,color:C.blue,regime:null},
-    {label:"Effective N",value:effectiveN?effectiveN.toFixed(0):"—",sub:"Diversification",color:C.navy,regime:null}
+    {label:"Effective N",value:effectiveN?effectiveN.toFixed(0):"-",sub:"Diversification",color:C.navy,regime:null}
   ];
   return(
     <div style={{animation:"fadeUp 0.4s ease"}}>
@@ -1192,7 +1192,7 @@ function AnalyticsResult({data,regimeAdjustment}){
       )}
       <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20}}>
         <h4 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Risk Decomposition</h4>
-        <DataTable headers={["Component","Contribution","% of Total"]} rows={[["Systematic Risk",`${(portfolioVol*0.7*100).toFixed(1)}%`,"70%"],["Idiosyncratic Risk",`${(portfolioVol*0.3*100).toFixed(1)}%`,"30%"],["Factor Risk",`${(portfolioVol*0.6*100).toFixed(1)}%`,"60%"],["Specific Risk",`${(portfolioVol*0.4*100).toFixed(1)}%`,"40%"],["Active Risk",`${(trackingError*100).toFixed(1)}%`,"—"]]}/>
+        <DataTable headers={["Component","Contribution","% of Total"]} rows={[["Systematic Risk",`${(portfolioVol*0.7*100).toFixed(1)}%`,"70%"],["Idiosyncratic Risk",`${(portfolioVol*0.3*100).toFixed(1)}%`,"30%"],["Factor Risk",`${(portfolioVol*0.6*100).toFixed(1)}%`,"60%"],["Specific Risk",`${(portfolioVol*0.4*100).toFixed(1)}%`,"40%"],["Active Risk",`${(trackingError*100).toFixed(1)}%`,"-"]]}/>
       </div>
     </div>
   );
@@ -1218,11 +1218,11 @@ function BacktestResult({data,regimeAdjustment}){
       </div>
       <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:24,marginBottom:24}}>
         <h4 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Cumulative Performance</h4>
-        <div style={{height:160,display:"flex",alignItems:"center",justifyContent:"center",background:C.borderLight,borderRadius:6,color:C.soft,fontSize:13}}>Performance chart · connect to live data feed</div>
+        <div style={{height:160,display:"flex",alignItems:"center",justifyContent:"center",background:C.borderLight,borderRadius:6,color:C.soft,fontSize:13}}>Performance chart . connect to live data feed</div>
       </div>
       <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20}}>
         <h4 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Detailed Analytics</h4>
-        <DataTable headers={["Metric","Value","Benchmark"]} rows={[["Best Month",`${((metrics.best_month||0)*100).toFixed(1)}%`,"—"],["Worst Month",`${((metrics.worst_month||0)*100).toFixed(1)}%`,"—"],["Win Rate",`${((metrics.win_rate||0)*100).toFixed(1)}%`,"> 50%"],["Sortino Ratio",`${(metrics.sortino||0).toFixed(2)}`,"> 1.0"],["Max DD Duration",`${metrics.max_drawdown_duration_days||0} days`,"< 365"],["Recovery Time",`${metrics.recovery_days||0} days`,"< 180"]]}/>
+        <DataTable headers={["Metric","Value","Benchmark"]} rows={[["Best Month",`${((metrics.best_month||0)*100).toFixed(1)}%`,"-"],["Worst Month",`${((metrics.worst_month||0)*100).toFixed(1)}%`,"-"],["Win Rate",`${((metrics.win_rate||0)*100).toFixed(1)}%`,"> 50%"],["Sortino Ratio",`${(metrics.sortino||0).toFixed(2)}`,"> 1.0"],["Max DD Duration",`${metrics.max_drawdown_duration_days||0} days`,"< 365"],["Recovery Time",`${metrics.recovery_days||0} days`,"< 180"]]}/>
       </div>
     </div>
   );
@@ -1261,12 +1261,12 @@ function SmartResult({data,regimeAdjustment}){
   if(typeof data==="object"&&(data.metrics||data.cumulative_returns))return<BacktestResult data={data} regimeAdjustment={regimeAdjustment}/>;
   if(typeof data==="object"&&(data.portfolio_vol!==undefined||data.factors))return<AnalyticsResult data={data} regimeAdjustment={regimeAdjustment}/>;
   if(typeof data==="object"&&(data.current_weights||data.target_weights||data.allocation))return<OptimizerResult data={data} regimeAdjustment={regimeAdjustment}/>;
-  if(Array.isArray(data))return<DataTable headers={["Metric","Value"]} rows={data.map(d=>[d.label||d.name||"—",d.value||"—"])}/>;
+  if(Array.isArray(data))return<DataTable headers={["Metric","Value"]} rows={data.map(d=>[d.label||d.name||"-",d.value||"-"])}/>;
   if(typeof data==="object")return<pre style={{fontSize:12,fontFamily:T.mono,background:C.borderLight,padding:12,borderRadius:6,overflow:"auto",maxHeight:300}}>{JSON.stringify(data,null,2)}</pre>;
   return<div style={{fontSize:13,color:C.navy}}>{String(data)}</div>;
 }
 
-// ── Alert Panel ───────────────────────────────────────────────────────────────
+// -- Alert Panel ---------------------------------------------------------------
 function AlertPanel(){
   const[status,setStatus]=useState(null);
   const[email,setEmail]=useState("");
@@ -1325,7 +1325,7 @@ function AlertPanel(){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
             <span style={{fontWeight:600,color:regimeConfig.color}}>{regimeConfig.label}</span>
-            <span style={{color:C.soft,marginLeft:8,fontSize:13}}>— {regimeConfig.subtitle}</span>
+            <span style={{color:C.soft,marginLeft:8,fontSize:13}}>- {regimeConfig.subtitle}</span>
           </div>
           <div style={{fontFamily:T.mono,fontSize:12,color:regimeConfig.color,fontWeight:600}}>
             {regimeConfig.confidence?.toFixed(0)}% confidence
@@ -1363,11 +1363,11 @@ function AlertPanel(){
         {status?.resend_configured?(
           <div>
             <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:C.greenBg,border:`1px solid ${C.green}33`,borderRadius:6,marginBottom:16}}>
-              <span style={{color:C.green,fontSize:16}}>✓</span>
-              <span style={{fontSize:13,color:C.green,fontWeight:500}}>Resend API key configured — sending to {status?.alert_email}</span>
+              <span style={{color:C.green,fontSize:16}}> </span>
+              <span style={{fontSize:13,color:C.green,fontWeight:500}}>Resend API key configured - sending to {status?.alert_email}</span>
             </div>
             <button onClick={testAlert} disabled={testing} style={{...btnOutline,fontSize:13}}>
-              {testing?<><Spin dark/>Sending test…</>:"Send test email"}
+              {testing?<><Spin dark/>Sending test </>:"Send test email"}
             </button>
           </div>
         ):(
@@ -1383,7 +1383,7 @@ function AlertPanel(){
             <div style={{fontSize:12,color:C.faint}}>
               Get a free Resend API key at{" "}
               <a href="https://resend.com" target="_blank" style={{color:C.blue}}>resend.com</a>
-              {" "}— free tier sends 100 emails/day.
+              {" "}- free tier sends 100 emails/day.
             </div>
           </div>
         )}
@@ -1397,15 +1397,15 @@ function AlertPanel(){
 
       {msg&&(
         <div style={{marginTop:16,padding:"12px 16px",borderRadius:8,background:msg.ok?C.greenBg:C.redBg,border:`1px solid ${msg.ok?C.green:C.red}33`,color:msg.ok?C.green:C.red,fontSize:13,fontWeight:500}}>
-          {msg.ok?"✓":"✗"} {msg.text}
+          {msg.ok?" ":" "} {msg.text}
         </div>
       )}
     </div>
   );
 }
-// ══════════════════════════════════════════════════════════════════════════════
+//                                                                               
 // RISK PROFILE SYSTEM
-// ══════════════════════════════════════════════════════════════════════════════
+//                                                                               
 
 const RiskProfileContext = createContext();
 const useRiskProfile = () => useContext(RiskProfileContext);
@@ -1480,7 +1480,7 @@ function RiskProfileProvider({ children }) {
   );
 }
 
-// ── Risk Profile Setup Screen ─────────────────────────────────────────────────
+// -- Risk Profile Setup Screen -------------------------------------------------
 function RiskProfileSetup({ onComplete }) {
   const { profile, setProfile } = useRiskProfile();
   const { regimeConfig } = useRegime();
@@ -1488,13 +1488,13 @@ function RiskProfileSetup({ onComplete }) {
   const [local, setLocal] = useState({ ...profile });
 
   const toleranceOpts = [
-    { value: "conservative", label: "Conservative", desc: "Capital preservation first. Willing to accept lower returns to reduce drawdowns.", icon: "🛡" },
-    { value: "moderate",     label: "Moderate",     desc: "Balanced approach. Accept moderate volatility for reasonable long-term growth.", icon: "⚖️" },
-    { value: "aggressive",   label: "Aggressive",   desc: "Maximum growth. Comfortable with significant drawdowns for higher long-term returns.", icon: "🚀" },
+    { value: "conservative", label: "Conservative", desc: "Capital preservation first. Willing to accept lower returns to reduce drawdowns.", icon: " " },
+    { value: "moderate",     label: "Moderate",     desc: "Balanced approach. Accept moderate volatility for reasonable long-term growth.", icon: "  " },
+    { value: "aggressive",   label: "Aggressive",   desc: "Maximum growth. Comfortable with significant drawdowns for higher long-term returns.", icon: " " },
   ];
   const horizonOpts = [
     { value: "short",  label: "Short",  sub: "Under 3 years",  desc: "Near-term liquidity needs. Regime transitions matter more." },
-    { value: "medium", label: "Medium", sub: "3–7 years",       desc: "Balanced time horizon. Standard institutional planning cycle." },
+    { value: "medium", label: "Medium", sub: "3-7 years",       desc: "Balanced time horizon. Standard institutional planning cycle." },
     { value: "long",   label: "Long",   sub: "Over 7 years",    desc: "Patient capital. Can ride through full regime cycles." },
   ];
   const objectiveOpts = [
@@ -1519,12 +1519,12 @@ function RiskProfileSetup({ onComplete }) {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ fontFamily: T.display, fontSize: 28, fontWeight: 700, color: C.navy, marginBottom: 8 }}>GrineOS</div>
-          <div style={{ fontSize: 14, color: C.soft }}>Let's build your risk profile — takes 60 seconds.</div>
+          <div style={{ fontSize: 14, color: C.soft }}>Let's build your risk profile - takes 60 seconds.</div>
           {/* Progress */}
           <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
             {steps.map((s, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: i <= step ? C.navy : C.border, color: i <= step ? "#fff" : C.soft, transition: "all 0.3s" }}>{i < step ? "✓" : i + 1}</div>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, background: i <= step ? C.navy : C.border, color: i <= step ? "#fff" : C.soft, transition: "all 0.3s" }}>{i < step ? " " : i + 1}</div>
                 {i < steps.length - 1 && <div style={{ width: 32, height: 2, background: i < step ? C.navy : C.border, transition: "all 0.3s" }} />}
               </div>
             ))}
@@ -1533,7 +1533,7 @@ function RiskProfileSetup({ onComplete }) {
 
         <div style={{ background: C.white, borderRadius: 16, border: `1px solid ${C.border}`, padding: 40, boxShadow: "0 8px 32px rgba(0,0,0,0.06)" }}>
 
-          {/* Step 0 — Risk Tolerance */}
+          {/* Step 0 - Risk Tolerance */}
           {step === 0 && (
             <div>
               <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your risk tolerance?</h2>
@@ -1547,14 +1547,14 @@ function RiskProfileSetup({ onComplete }) {
                       <div style={{ fontSize: 15, fontWeight: 600, color: C.navy, marginBottom: 3 }}>{opt.label}</div>
                       <div style={{ fontSize: 13, color: C.soft, lineHeight: 1.5 }}>{opt.desc}</div>
                     </div>
-                    {local.risk_tolerance === opt.value && <div style={{ marginLeft: "auto", width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}>✓</div>}
+                    {local.risk_tolerance === opt.value && <div style={{ marginLeft: "auto", width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}> </div>}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 1 — Horizon */}
+          {/* Step 1 - Horizon */}
           {step === 1 && (
             <div>
               <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your investment horizon?</h2>
@@ -1570,14 +1570,14 @@ function RiskProfileSetup({ onComplete }) {
                       </div>
                       <div style={{ fontSize: 13, color: C.soft }}>{opt.desc}</div>
                     </div>
-                    {local.horizon === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}>✓</div>}
+                    {local.horizon === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12 }}> </div>}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 2 — Objective */}
+          {/* Step 2 - Objective */}
           {step === 2 && (
             <div>
               <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>What's your primary objective?</h2>
@@ -1590,14 +1590,14 @@ function RiskProfileSetup({ onComplete }) {
                       <div style={{ fontSize: 14, fontWeight: 600, color: C.navy, marginBottom: 2 }}>{opt.label}</div>
                       <div style={{ fontSize: 12, color: C.soft }}>{opt.desc}</div>
                     </div>
-                    {local.objective === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, flexShrink: 0 }}>✓</div>}
+                    {local.objective === opt.value && <div style={{ width: 20, height: 20, borderRadius: "50%", background: C.navy, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, flexShrink: 0 }}> </div>}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Step 3 — Summary */}
+          {/* Step 3 - Summary */}
           {step === 3 && (
             <div>
               <h2 style={{ fontFamily: T.display, fontSize: 22, fontWeight: 600, color: C.navy, marginBottom: 6 }}>Your risk profile is ready.</h2>
@@ -1623,10 +1623,10 @@ function RiskProfileSetup({ onComplete }) {
                 <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.5 }}>
                   {(() => {
                     const mult = getProfileMultiplier(regimeConfig.label, local);
-                    if (mult >= 0.90) return "Your profile supports full regime deployment — maximum risk exposure aligned with " + regimeConfig.label + ".";
-                    if (mult >= 0.70) return "Your profile allows strong participation in " + regimeConfig.label + " — moderate-to-high risk exposure recommended.";
-                    if (mult >= 0.50) return "Your profile calls for selective exposure in " + regimeConfig.label + " — balanced positioning with downside protection.";
-                    return "Your profile prioritises protection — conservative exposure even in " + regimeConfig.label + " regime conditions.";
+                    if (mult >= 0.90) return "Your profile supports full regime deployment - maximum risk exposure aligned with " + regimeConfig.label + ".";
+                    if (mult >= 0.70) return "Your profile allows strong participation in " + regimeConfig.label + " - moderate-to-high risk exposure recommended.";
+                    if (mult >= 0.50) return "Your profile calls for selective exposure in " + regimeConfig.label + " - balanced positioning with downside protection.";
+                    return "Your profile prioritises protection - conservative exposure even in " + regimeConfig.label + " regime conditions.";
                   })()}
                 </div>
               </div>
@@ -1636,12 +1636,12 @@ function RiskProfileSetup({ onComplete }) {
           {/* Navigation */}
           <div style={{ display: "flex", justifyContent: "space-between", marginTop: 32 }}>
             {step > 0
-              ? <button onClick={() => setStep(step - 1)} style={{ ...btnOutline, padding: "11px 24px" }}>← Back</button>
+              ? <button onClick={() => setStep(step - 1)} style={{ ...btnOutline, padding: "11px 24px" }}>  Back</button>
               : <div />
             }
             {step < steps.length - 1
-              ? <button onClick={() => setStep(step + 1)} style={{ ...btnPrimary, padding: "11px 28px" }}>Continue →</button>
-              : <button onClick={complete} style={{ ...btnPrimary, padding: "11px 28px" }}>Enter Platform →</button>
+              ? <button onClick={() => setStep(step + 1)} style={{ ...btnPrimary, padding: "11px 28px" }}>Continue -></button>
+              : <button onClick={complete} style={{ ...btnPrimary, padding: "11px 28px" }}>Enter Platform -></button>
             }
           </div>
         </div>
@@ -1654,7 +1654,7 @@ function RiskProfileSetup({ onComplete }) {
   );
 }
 
-// ── Profile Settings Panel ────────────────────────────────────────────────────
+// -- Profile Settings Panel ----------------------------------------------------
 function ProfileSettings() {
   const { profile, setProfile, resetProfile } = useRiskProfile();
   const { regimeConfig } = useRegime();
@@ -1681,7 +1681,7 @@ function ProfileSettings() {
       <div style={{ background: regimeConfig.bgColor, border: `1px solid ${regimeConfig.color}33`, borderRadius: 8, padding: 16, marginBottom: 28 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 11, color: regimeConfig.color, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4, fontFamily: T.mono }}>Profile Impact — {regimeConfig.label} Regime</div>
+            <div style={{ fontSize: 11, color: regimeConfig.color, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 700, marginBottom: 4, fontFamily: T.mono }}>Profile Impact - {regimeConfig.label} Regime</div>
             <div style={{ fontSize: 13, color: C.navy }}>Your profile applies a <strong>{(mult * 100).toFixed(0)}%</strong> signal multiplier in the current regime.</div>
           </div>
           <div style={{ fontFamily: T.display, fontSize: 32, fontWeight: 700, color: regimeConfig.color }}>{(mult * 100).toFixed(0)}%</div>
@@ -1695,7 +1695,7 @@ function ProfileSettings() {
       <div style={{ marginBottom: 24 }}>
         <label style={lbl}>Risk Tolerance</label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          {[["conservative", "🛡", "Conservative"], ["moderate", "⚖️", "Moderate"], ["aggressive", "🚀", "Aggressive"]].map(([val, icon, label]) => (
+          {[["conservative", " ", "Conservative"], ["moderate", "  ", "Moderate"], ["aggressive", " ", "Aggressive"]].map(([val, icon, label]) => (
             <button key={val} onClick={() => setLocal({ ...local, risk_tolerance: val })} style={{ padding: "12px 10px", borderRadius: 8, border: `2px solid ${local.risk_tolerance === val ? C.navy : C.border}`, background: local.risk_tolerance === val ? C.accentLight : C.white, cursor: "pointer", fontFamily: T.body, transition: "all 0.2s" }}>
               <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{label}</div>
@@ -1708,7 +1708,7 @@ function ProfileSettings() {
       <div style={{ marginBottom: 24 }}>
         <label style={lbl}>Investment Horizon</label>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-          {[["short", "Short", "< 3 years"], ["medium", "Medium", "3–7 years"], ["long", "Long", "> 7 years"]].map(([val, label, sub]) => (
+          {[["short", "Short", "< 3 years"], ["medium", "Medium", "3-7 years"], ["long", "Long", "> 7 years"]].map(([val, label, sub]) => (
             <button key={val} onClick={() => setLocal({ ...local, horizon: val })} style={{ padding: "12px 10px", borderRadius: 8, border: `2px solid ${local.horizon === val ? C.navy : C.border}`, background: local.horizon === val ? C.accentLight : C.white, cursor: "pointer", fontFamily: T.body, transition: "all 0.2s" }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.navy, marginBottom: 2 }}>{label}</div>
               <div style={{ fontSize: 11, color: C.faint, fontFamily: T.mono }}>{sub}</div>
@@ -1731,7 +1731,7 @@ function ProfileSettings() {
       <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
         <button onClick={save} style={{ ...btnPrimary, padding: "11px 28px" }}>Save Profile</button>
         <button onClick={resetProfile} style={{ ...btnOutline, padding: "11px 20px", fontSize: 12, color: C.red, borderColor: C.red + "44" }}>Reset to Default</button>
-        {saved && <span style={{ fontSize: 13, color: C.green, fontWeight: 500 }}>✓ Saved</span>}
+        {saved && <span style={{ fontSize: 13, color: C.green, fontWeight: 500 }}>  Saved</span>}
       </div>
 
       {/* Regime matrix preview */}
@@ -1764,16 +1764,16 @@ function ProfileSettings() {
   );
 }
 
-// ── Profile-aware Exposure Map ────────────────────────────────────────────────
+// -- Profile-aware Exposure Map ------------------------------------------------
 function ExposureMapPanel() {
   const { regimeConfig } = useRegime();
   const { profile } = useRiskProfile();
   const exposure = regimeConfig.exposure;
-  if (!exposure || !exposure.rows) return <div style={{ color: C.soft, fontSize: 13, padding: 16, background: C.borderLight, borderRadius: 8 }}>Loading live exposure map…</div>;
+  if (!exposure || !exposure.rows) return <div style={{ color: C.soft, fontSize: 13, padding: 16, background: C.borderLight, borderRadius: 8 }}>Loading live exposure map </div>;
 
   const mult = getProfileMultiplier(regimeConfig.label, profile);
   const sigColors = { "MAX OVERWEIGHT": C.green, "OVERWEIGHT": "#22c55e", "NEUTRAL": C.soft, "FLOOR": C.gold, "ELEVATED": C.gold, "UNDERWEIGHT": "#f97316", "MAX UNDERWEIGHT": C.red, "MAXIMUM": C.red };
-  const dirText = { "up2": "↑↑", "up": "↑", "--": "—", "dn": "↓", "dn2": "↓↓" };
+  const dirText = { "up2": "  ", "up": " ", "--": "-", "dn": " ", "dn2": "  " };
 
   const profileLabel = profile.risk_tolerance.charAt(0).toUpperCase() + profile.risk_tolerance.slice(1);
 
@@ -1783,7 +1783,7 @@ function ExposureMapPanel() {
         <h3 style={{ fontSize: 13, fontWeight: 600, color: C.navy, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live Exposure Map</h3>
         <div style={{ display: "flex", gap: 6 }}>
           <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: regimeConfig.bgColor, color: regimeConfig.color, fontWeight: 600, fontFamily: T.mono }}>{regimeConfig.label}</span>
-          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: C.accentLight, color: C.navy, fontWeight: 600, fontFamily: T.mono }}>{profileLabel} · {(mult * 100).toFixed(0)}%</span>
+          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 4, background: C.accentLight, color: C.navy, fontWeight: 600, fontFamily: T.mono }}>{profileLabel} . {(mult * 100).toFixed(0)}%</span>
         </div>
       </div>
       <div style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
@@ -1801,7 +1801,7 @@ function ExposureMapPanel() {
               <div style={{ fontSize: 11, color: C.faint, fontFamily: T.mono }}>{row.signal}</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: sigColors[adjSignal] || C.soft, fontFamily: T.mono, display: "flex", alignItems: "center", gap: 4 }}>
                 {adjSignal}
-                {changed && <span style={{ fontSize: 9, color: C.gold }}>↓</span>}
+                {changed && <span style={{ fontSize: 9, color: C.gold }}> </span>}
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: sigColors[adjSignal] || C.soft }}>{dirText[row.direction] || row.direction}</div>
               <div style={{ fontSize: 11, fontFamily: T.mono, color: C.navy, fontWeight: 600 }}>{(row.confidence * mult).toFixed(0)}%</div>
@@ -1811,7 +1811,7 @@ function ExposureMapPanel() {
       </div>
       {regimeConfig.narrative && (
         <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 6, background: regimeConfig.bgColor, border: `1px solid ${regimeConfig.color}33`, fontSize: 11, fontStyle: "italic", color: C.navy, lineHeight: 1.5 }}>
-          → {regimeConfig.narrative.text}
+          -> {regimeConfig.narrative.text}
         </div>
       )}
     </div>
@@ -1838,7 +1838,7 @@ function PortfoliosTab({token}){
         </div>
         <button onClick={load} style={btnOutline}>Refresh</button>
       </div>
-      {loading&&<div style={{color:C.soft,fontSize:13,display:"flex",alignItems:"center"}}><Spin dark/>Loading portfolios…</div>}
+      {loading&&<div style={{color:C.soft,fontSize:13,display:"flex",alignItems:"center"}}><Spin dark/>Loading portfolios </div>}
       {err&&<div style={eBox}>{err}</div>}
       {!loading&&!err&&rows.length===0&&(
         <div style={{background:C.white,borderRadius:10,border:`1px solid ${C.border}`,padding:48,textAlign:"center"}}>
@@ -1850,22 +1850,22 @@ function PortfoliosTab({token}){
         <DataTable
           headers={["ID","Name","Client","Total Value","Created"]}
           rows={rows.map(p=>[
-            (p.id||p._id||"—").toString().slice(0,8),
-            p.name||"—",
-            p.client_name||p.clientName||"—",
-            p.total_value||p.totalValue?`$${((p.total_value||p.totalValue)/1e6).toFixed(2)}M`:"—",
-            p.created_at?new Date(p.created_at).toLocaleDateString():"—"
+            (p.id||p._id||"-").toString().slice(0,8),
+            p.name||"-",
+            p.client_name||p.clientName||"-",
+            p.total_value||p.totalValue?`$${((p.total_value||p.totalValue)/1e6).toFixed(2)}M`:"-",
+            p.created_at?new Date(p.created_at).toLocaleDateString():"-"
           ])}
         />
       )}
       <div style={{marginTop:20,padding:"12px 16px",borderRadius:8,background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,fontSize:12,color:regimeConfig.color}}>
-        Current regime: <strong>{regimeConfig.label}</strong> — all saved portfolios can be re-optimized with live regime constraints.
+        Current regime: <strong>{regimeConfig.label}</strong> - all saved portfolios can be re-optimized with live regime constraints.
       </div>
     </div>
   );
 }
 
-const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimizer",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"analytics",label:"Analytics"},{id:"portfolios",label:"Portfolios"},{id:"alerts",label:"Alerts 🔔"},{id:"profile",label:"⚙ Profile"},{id:"news",label:"News"},{id:"learn",label:"Learn"}];
+const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimizer",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"analytics",label:"Analytics"},{id:"portfolios",label:"Portfolios"},{id:"alerts",label:"Alerts  "},{id:"profile",label:"  Profile"},{id:"news",label:"News"},{id:"learn",label:"Learn"}];
 
 function AuthScreen({onAuth}){
   const[creds,setCreds]=useState({email:"kacy@grineos.com",password:"Grine2026!",tenant:"kgco"});
@@ -1892,7 +1892,7 @@ function AuthScreen({onAuth}){
         ))}
         <button onClick={handleAuth} disabled={loading} style={{...btnPrimary,width:"100%",fontSize:14,opacity:loading?0.7:1}}>{loading?<Spin/>:"Sign In"}</button>
         {err&&<div style={eBox}>{err}</div>}
-        <div style={{textAlign:"center",marginTop:24,fontSize:12,color:C.faint}}>KG&Co Capital Advisory · Powered by Grine Technologies</div>
+        <div style={{textAlign:"center",marginTop:24,fontSize:12,color:C.faint}}>KG&Co Capital Advisory . Powered by Grine Technologies</div>
       </div>
     </div>
   );
@@ -1917,11 +1917,11 @@ function DemoTab({demoP}){
         <div>
           <div style={{fontSize:12,color:C.soft,textTransform:"uppercase",letterSpacing:"0.12em",fontWeight:500,marginBottom:6}}>Portfolio Overview</div>
           <h2 style={{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}>{activePortfolio.clientName} Portfolio</h2>
-          {useCustomPortfolio&&<div style={{fontSize:11,color:regimeConfig.color,marginTop:4}}>✓ Using Custom Portfolio</div>}
+          {useCustomPortfolio&&<div style={{fontSize:11,color:regimeConfig.color,marginTop:4}}>  Using Custom Portfolio</div>}
         </div>
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <button onClick={()=>setShowCustomizer(!showCustomizer)} style={{...btnOutline,padding:"8px 16px",fontSize:12,display:'flex',alignItems:'center',gap:6,borderColor:useCustomPortfolio?regimeConfig.color:C.border,color:useCustomPortfolio?regimeConfig.color:C.soft}}>
-            <span style={{fontSize:14}}>⚙️</span>Customize
+            <span style={{fontSize:14}}>  </span>Customize
           </button>
           {useCustomPortfolio&&<button onClick={()=>{setUseCustomPortfolio(false);setShowCustomizer(false);}} style={{...btnOutline,padding:"6px 12px",fontSize:11,color:C.red,borderColor:C.red+"44"}}>Reset</button>}
           <RegimeToggle enabled={isRegimeActive} onToggle={()=>setIsRegimeActive(!isRegimeActive)}/>
@@ -1948,7 +1948,7 @@ function DemoTab({demoP}){
                 <select style={{...inp,fontSize:11,padding:'6px 8px'}} value={h.assetClass} onChange={e=>{const n=[...customPortfolio.holdings];n[i].assetClass=e.target.value;setCustomPortfolio({...customPortfolio,holdings:n});}}>
                   {["US Equity","Intl Equity","Fixed Income","Real Estate","Commodities","Cash"].map(ac=><option key={ac} value={ac}>{ac}</option>)}
                 </select>
-                <button onClick={()=>setCustomPortfolio({...customPortfolio,holdings:customPortfolio.holdings.filter((_,idx)=>idx!==i)})} style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:16}}>×</button>
+                <button onClick={()=>setCustomPortfolio({...customPortfolio,holdings:customPortfolio.holdings.filter((_,idx)=>idx!==i)})} style={{background:'none',border:'none',color:C.red,cursor:'pointer',fontSize:16}}>x</button>
               </div>
             ))}
             <button onClick={()=>setCustomPortfolio({...customPortfolio,holdings:[...customPortfolio.holdings,{ticker:"NEW",name:"New Holding",weight:5,assetClass:"US Equity"}]})} style={{...btnOutline,padding:'6px 12px',fontSize:12,marginTop:8}}>+ Add</button>
@@ -1974,7 +1974,7 @@ function DemoTab({demoP}){
       <div style={{display:"grid",gridTemplateColumns:"350px 1fr",gap:32}}>
         <div>
           <h3 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Allocation</h3>
-          {/* FIX 2 — sanitize value before passing to DonutChart */}
+          {/* FIX 2 - sanitize value before passing to DonutChart */}
           {processedHoldings.length>0&&<DonutChart data={processedHoldings.map(h=>({label:h.ticker,value:isFinite(h.value)&&h.value>0?h.value:((h.weight||0)/100)*(activePortfolio.totalValue||0)}))} totalValue={activePortfolio.totalValue}/>}
           <div style={{marginTop:24}}><NewsWidget title="Regime Impact News"/></div>
         </div>
@@ -1986,7 +1986,7 @@ function DemoTab({demoP}){
       {processedHoldings.length>0&&(
         <div style={{marginTop:32}}>
           <h3 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Holdings Detail</h3>
-          <DataTable headers={["Ticker","Name","Asset Class","Value","Weight"]} rows={processedHoldings.map(h=>[h.ticker,h.name||"—",h.assetClass||"—",`$${(h.value||0).toLocaleString()}`,`${(h.weight||0).toFixed(1)}%`])}/>
+          <DataTable headers={["Ticker","Name","Asset Class","Value","Weight"]} rows={processedHoldings.map(h=>[h.ticker,h.name||"-",h.assetClass||"-",`$${(h.value||0).toLocaleString()}`,`${(h.weight||0).toFixed(1)}%`])}/>
         </div>
       )}
       <RegimeTimeline/>
@@ -2037,7 +2037,7 @@ function AgentTab({token,demoP}){
         <div style={{marginTop:10,padding:"8px 14px",borderRadius:6,backgroundColor:regimeConfig.bgColor,display:"inline-flex",alignItems:"center",gap:8}}>
           <span style={{width:6,height:6,borderRadius:"50%",background:regimeConfig.color,display:"inline-block"}}/>
           <span style={{fontSize:12,color:regimeConfig.color,fontWeight:600}}>
-            {regimeConfig.label} · {regimeConfig.confidence?.toFixed(0)||"—"}% confidence · {regimeConfig.instinct?.split(".")[0]}
+            {regimeConfig.label} . {regimeConfig.confidence?.toFixed(0)||"-"}% confidence . {regimeConfig.instinct?.split(".")[0]}
           </span>
         </div>
       </div>
@@ -2046,7 +2046,7 @@ function AgentTab({token,demoP}){
         {messages.length===0?(
           <div>
             <div style={{color:C.faint,textAlign:"center",fontStyle:"italic",marginBottom:24,marginTop:20}}>
-              Ask me anything about your portfolio — I have live regime context from Engine A.
+              Ask me anything about your portfolio - I have live regime context from Engine A.
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
               {suggestions.map((s,i)=>(
@@ -2113,7 +2113,7 @@ function AgentTab({token,demoP}){
       <div style={{display:"flex",gap:10}}>
         <input style={{...inp,flex:1}} value={input} onChange={e=>setInput(e.target.value)}
           onKeyPress={e=>e.key==="Enter"&&sendMessage()}
-          placeholder="Ask about allocation, regime implications, risk management…"
+          placeholder="Ask about allocation, regime implications, risk management "
           disabled={loading}/>
         <button onClick={sendMessage} disabled={loading||!input.trim()} style={{...btnPrimary,opacity:loading||!input.trim()?0.5:1,minWidth:72}}>
           {loading?<Spin/>:"Send"}
@@ -2206,7 +2206,7 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
       return(
         <div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
-            {[["Total Return",`${(m.total_return*100).toFixed(1)}%`,m.total_return>=0?"#16a34a":"#dc2626"],["Ann. Return",`${(m.annualized_return*100).toFixed(1)}%`,"#2563eb"],["Volatility",`${(m.annualized_vol*100).toFixed(1)}%`,"#b45309"],["Sharpe",m.sharpe?.toFixed(2)||"—","#1a2332"],["Max DD",`${(Math.abs(m.max_drawdown||0)*100).toFixed(1)}%`,"#dc2626"],["Calmar",m.calmar?.toFixed(2)||"—","#64748b"]].map(([l,v,c],i)=>(
+            {[["Total Return",`${(m.total_return*100).toFixed(1)}%`,m.total_return>=0?"#16a34a":"#dc2626"],["Ann. Return",`${(m.annualized_return*100).toFixed(1)}%`,"#2563eb"],["Volatility",`${(m.annualized_vol*100).toFixed(1)}%`,"#b45309"],["Sharpe",m.sharpe?.toFixed(2)||"-","#1a2332"],["Max DD",`${(Math.abs(m.max_drawdown||0)*100).toFixed(1)}%`,"#dc2626"],["Calmar",m.calmar?.toFixed(2)||"-","#64748b"]].map(([l,v,c],i)=>(
               <div key={i} style={{background:"#ffffff",borderRadius:6,border:"1px solid #e2e8f0",padding:"9px 11px",borderTop:`3px solid ${c}`}}>
                 <div style={{fontSize:9,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2,fontFamily:"IBM Plex Mono,monospace"}}>{l}</div>
                 <div style={{fontSize:17,fontWeight:600,color:"#1a2332",fontFamily:"Source Serif 4,serif"}}>{v}</div>
@@ -2224,7 +2224,7 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
       return<div style={{marginTop:6}}><HBarChart data={Object.entries(data.target_weights).map(([k,v])=>({label:k,value:v,display:`${v.toFixed(1)}%`}))}/></div>;
     }
     if(data.portfolio_vol!==undefined){
-      return<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{[["Portfolio Vol",`${(data.portfolio_vol*100).toFixed(1)}%`],["VaR",`${(Math.abs(data.portfolio_var||0)*100).toFixed(1)}%`],["Tracking Error",`${(data.tracking_error*100).toFixed(1)}%`],["Effective N",data.effective_n?.toFixed(0)||"—"]].map(([l,v],i)=>(
+      return<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>{[["Portfolio Vol",`${(data.portfolio_vol*100).toFixed(1)}%`],["VaR",`${(Math.abs(data.portfolio_var||0)*100).toFixed(1)}%`],["Tracking Error",`${(data.tracking_error*100).toFixed(1)}%`],["Effective N",data.effective_n?.toFixed(0)||"-"]].map(([l,v],i)=>(
         <div key={i} style={{background:"#ffffff",borderRadius:6,border:"1px solid #e2e8f0",padding:"9px 11px"}}>
           <div style={{fontSize:9,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2,fontFamily:"IBM Plex Mono,monospace"}}>{l}</div>
           <div style={{fontSize:17,fontWeight:600,color:"#1a2332",fontFamily:"Source Serif 4,serif"}}>{v}</div>
@@ -2265,7 +2265,7 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
       {err&&<div style={eBox}>{err}</div>}
       {(result||baseResult)&&(
         <div>
-          <h3 style={{fontSize:16,fontWeight:600,color:"#1a2332",marginBottom:16}}>Results {isRegimeActive?"— Regime Comparison":""}</h3>
+          <h3 style={{fontSize:16,fontWeight:600,color:"#1a2332",marginBottom:16}}>Results {isRegimeActive?"- Regime Comparison":""}</h3>
           <div style={{display:"grid",gridTemplateColumns:isRegimeActive&&baseResult?"1fr 1fr":"1fr",gap:20}}>
             {isRegimeActive&&baseResult&&(
               <div style={{background:"#ffffff",borderRadius:8,border:"1px solid #e2e8f0",padding:18}}>
@@ -2295,7 +2295,7 @@ function ScenariosTab({token,demoP}){
     setSelected(s);setLoading(true);setErr("");setResult(null);
     try{
       let sd;
-      if(s==="Regime Transition"){const next=regime.current==='expansion'?'protection':'expansion';sd={scenario:`Regime Transition: ${regimeConfig.label} → ${REGIME_PARAMETERS[next].label}`,impact:{equity_shock:regime.current==='expansion'?-0.15:0.10,bond_impact:regime.current==='expansion'?0.08:-0.05,vol_increase:regime.current==='expansion'?0.05:-0.03},portfolio_impact:{total_return:regime.current==='expansion'?-8.2:12.4,volatility_change:regime.current==='expansion'?3.1:-2.8,max_drawdown:regime.current==='expansion'?-12.5:-6.8},severity:"High"};}
+      if(s==="Regime Transition"){const next=regime.current==='expansion'?'protection':'expansion';sd={scenario:`Regime Transition: ${regimeConfig.label} -> ${REGIME_PARAMETERS[next].label}`,impact:{equity_shock:regime.current==='expansion'?-0.15:0.10,bond_impact:regime.current==='expansion'?0.08:-0.05,vol_increase:regime.current==='expansion'?0.05:-0.03},portfolio_impact:{total_return:regime.current==='expansion'?-8.2:12.4,volatility_change:regime.current==='expansion'?3.1:-2.8,max_drawdown:regime.current==='expansion'?-12.5:-6.8},severity:"High"};}
       else{const cfg=scenarioMap[s]||{impact:{equity_shock:-0.10,bond_impact:0.02,vol_increase:0.03},portfolio_impact:{total_return:-6.8,volatility_change:2.4,max_drawdown:-9.8},severity:"Medium"};sd={scenario:s,...cfg};}
       setResult(sd);
     }catch(e){setErr(e.message);}
@@ -2322,7 +2322,7 @@ function ScenariosTab({token,demoP}){
   );
 }
 
-/* ═══ DASHBOARD ═══ */
+/*     DASHBOARD     */
 function Dashboard({token,userEmail,onLogout}){
   const[tab,setTab]=useState("demo");const[health,setHealth]=useState(null);const[demoP,setDemoP]=useState(null);
   const[regimeSidebarOpen,setRegimeSidebarOpen]=useState(false);
@@ -2359,17 +2359,17 @@ function Dashboard({token,userEmail,onLogout}){
         </div>
         <div style={{display:"flex",alignItems:"center",gap:16}}>
           <button onClick={()=>setRegimeSidebarOpen(!regimeSidebarOpen)} style={{...btnOutline,padding:"6px 14px",fontSize:11,display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:12}}>🧠</span>Regime Intel
+            <span style={{fontSize:12}}> </span>Regime Intel
           </button>
           <button onClick={()=>setTab("profile")} style={{...btnOutline,padding:"6px 12px",fontSize:11,display:'flex',alignItems:'center',gap:6,borderColor:C.border}}>
             <span style={{fontSize:14}}>
-              {profile.risk_tolerance==="conservative"?"🛡":profile.risk_tolerance==="aggressive"?"🚀":"⚖️"}
+              {profile.risk_tolerance==="conservative"?" ":profile.risk_tolerance==="aggressive"?" ":"  "}
             </span>
             <span style={{fontFamily:T.mono,fontSize:10,color:C.soft}}>
-              {profile.risk_tolerance.charAt(0).toUpperCase()+profile.risk_tolerance.slice(1)} · {profile.horizon.charAt(0).toUpperCase()+profile.horizon.slice(1)}
+              {profile.risk_tolerance.charAt(0).toUpperCase()+profile.risk_tolerance.slice(1)} . {profile.horizon.charAt(0).toUpperCase()+profile.horizon.slice(1)}
             </span>
           </button>
-          <span style={{fontSize:12,color:C.soft}}>KG&Co Capital Advisory · London · New York</span>
+          <span style={{fontSize:12,color:C.soft}}>KG&Co Capital Advisory . London . New York</span>
           <div style={{width:1,height:16,background:C.border}}/>
           <span style={{fontSize:12,color:C.faint}}>{userEmail}</span>
           <button onClick={onLogout} style={{...btnOutline,padding:"6px 14px",fontSize:11,color:C.red,borderColor:C.red+"44"}}>Sign Out</button>
@@ -2387,7 +2387,7 @@ function Dashboard({token,userEmail,onLogout}){
           <div style={{display:"flex",alignItems:"center"}}><Dot ok={!engineError}/>Engine A <Tag color={engineError?C.red:C.green}>{engineError?"offline":"live"}</Tag></div>
           {lastUpdated&&<div style={{fontSize:10,color:C.faint}}>Updated {lastUpdated.toLocaleTimeString()}</div>}
         </div>
-        <div>Grine Technologies Ltd · A KG&Co Company</div>
+        <div>Grine Technologies Ltd . A KG&Co Company</div>
       </footer>
     </div>
   );
