@@ -1459,18 +1459,18 @@ function RiskProfileProvider({ children }) {
     try {
       const saved = localStorage.getItem("grineos_risk_profile");
       return saved ? { ...DEFAULT_PROFILE, ...JSON.parse(saved) } : DEFAULT_PROFILE;
-    } catch { return DEFAULT_PROFILE; }
+    } catch(e) { return DEFAULT_PROFILE; }
   });
 
   const setProfile = (updates) => {
     const next = { ...profile, ...updates };
     setProfileState(next);
-    try { localStorage.setItem("grineos_risk_profile", JSON.stringify(next)); } catch {}
+    try { localStorage.setItem("grineos_risk_profile", JSON.stringify(next)); } catch(e) {}
   };
 
   const resetProfile = () => {
     setProfileState(DEFAULT_PROFILE);
-    try { localStorage.removeItem("grineos_risk_profile"); } catch {}
+    try { localStorage.removeItem("grineos_risk_profile"); } catch(e) {}
   };
 
   return (
