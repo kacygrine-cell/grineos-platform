@@ -1609,7 +1609,7 @@ function EngineTab({token,demoP,title,desc,endpoint,controls=[]}){
     const isDef=["SHOCK","SLIDE"].includes(regimeConfig.label);
     if(endpoint.includes("backtest")){
       const pm=params.period==="1y"?1:params.period==="3y"?3:params.period==="5y"?5:2;
-      const base={metrics:{total_return:(32.1*pm)/100,annualized_return:0.098,annualized_vol:0.152,sharpe:0.64,max_drawdown:-0.187,calmar:0.52,best_month:0.083,worst_month:-0.112,win_rate:0.62,sortino:0.89,max_drawdown_duration_days:124,recovery_days:87},cumulative_returns:genCurve(0.098,0.152,pm*12)};
+      const base={metrics:{total_return:0.098*pm,annualized_return:0.098,annualized_vol:0.152,sharpe:0.64,max_drawdown:-0.187,calmar:0.52,best_month:0.083,worst_month:-0.112,win_rate:0.62,sortino:0.89,max_drawdown_duration_days:124,recovery_days:87},cumulative_returns:genCurve(0.098,0.152,pm*12)};
       const rR=isExp?0.114:isDef?0.072:0.091,rV=isExp?0.138:isDef?0.109:0.124;
       const rAware={metrics:{total_return:rR*pm,annualized_return:rR,annualized_vol:rV,sharpe:isExp?0.83:isDef?0.66:0.74,max_drawdown:isExp?-0.142:isDef?-0.098:-0.161,calmar:isExp?0.80:isDef?0.73:0.57,best_month:isExp?0.098:0.062,worst_month:isExp?-0.084:-0.112,win_rate:isExp?0.68:0.59,sortino:isExp?1.12:0.88,max_drawdown_duration_days:isExp?89:131,recovery_days:isExp?62:98},cumulative_returns:genCurve(rR,rV,pm*12)};
       return[base,rAware];
