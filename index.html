@@ -72,6 +72,7 @@ input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px r
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script>window.addEventListener("load",function(){if(!window.PptxGenJS&&window.pptxgen)window.PptxGenJS=window.pptxgen;});</script>
 </head>
 <body>
 <div id="root"></div>
@@ -2829,10 +2830,10 @@ function ICModePanel({onClose, demoP}){
   };
 
   const downloadPPTX=async()=>{
-    if(!brief||!window.PptxGenJS)return;
+    const PptxGenJS=window.PptxGenJS||window.pptxgen;if(!brief||!PptxGenJS){alert("PPTX library not loaded. Please refresh and try again.");return;}
     setGenerating(true);
     try{
-      const pres=new window.PptxGenJS();
+      const pres=new PptxGenJS();
       pres.layout="LAYOUT_WIDE";
       pres.title="GrineOS Investment Committee Brief";
       const c=brief.content;
