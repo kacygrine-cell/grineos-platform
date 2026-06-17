@@ -71,6 +71,7 @@ input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px r
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script>window.addEventListener("load",function(){if(!window.PptxGenJS&&window.pptxgen)window.PptxGenJS=window.pptxgen;});</script>
 </head>
@@ -80,6 +81,9 @@ input:focus,textarea:focus{border-color:#1a2332!important;box-shadow:0 0 0 2px r
 const {useState,useEffect,useRef,useCallback,createContext,useContext}=React;
 const API="https://grine-platform-production.up.railway.app";
 const ENGINE_A="https://grineos-engine-a-production.up.railway.app";
+const SUPABASE_URL="https://fwcjmctbczhvxzpdiobv.supabase.co";
+const SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2ptY3RiY3podnh6cGRpb2J2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjI1NzUsImV4cCI6MjA5NzI5ODU3NX0.be918Nxd7DH1paWVOwwcDk-K0S8cUsfT54NeyYyyyXY";
+const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const REGIME_COLORS={SURGE:"#16a34a",CRUISE:"#22c55e",PRESSURE:"#b45309",SLIDE:"#f97316",SHOCK:"#dc2626",FOG:"#7c3aed"};
 const REGIME_BG={SURGE:"rgba(22,163,74,0.1)",CRUISE:"rgba(34,197,94,0.08)",PRESSURE:"rgba(180,83,9,0.1)",SLIDE:"rgba(249,115,22,0.1)",SHOCK:"rgba(220,38,38,0.1)",FOG:"rgba(124,58,237,0.1)"};
 const T={display:"'Source Serif 4',Georgia,serif",body:"'DM Sans',sans-serif",mono:"'IBM Plex Mono',monospace"};
@@ -1908,37 +1912,124 @@ function PortfoliosTab({token}){
 const TABS=[{id:"demo",label:"Demo Portfolio"},{id:"agent",label:"Agent"},{id:"optimizer",label:"Optimizer"},{id:"backtest",label:"Backtest"},{id:"scenarios",label:"Scenarios"},{id:"analytics",label:"Analytics"},{id:"portfolios",label:"Portfolios"},{id:"alerts",label:"Alerts  "},{id:"profile",label:"  Profile"},{id:"news",label:"News"},{id:"learn",label:"Learn"}];
 
 function AuthScreen({onAuth}){
-  const[creds,setCreds]=useState({email:"kacy@grineos.com",password:"Grine2026!",tenant:"kgco"});
-  const[loading,setLoading]=useState(false);const[err,setErr]=useState("");
-  const handleAuth=async()=>{
-    setLoading(true);setErr("");
-    try{const d=await apiFetch("/api/v1/auth/login",null,{method:"POST",body:JSON.stringify({email:creds.email,password:creds.password,tenant_slug:creds.tenant})});onAuth(d.access_token,creds.email);}
-    catch(e){setErr(e.message);}finally{setLoading(false);}
+  const[tab,setTab]=useState("signin");
+  const[email,setEmail]=useState("");
+  const[password,setPassword]=useState("");
+  const[confirm,setConfirm]=useState("");
+  const[loading,setLoading]=useState(false);
+  const[err,setErr]=useState("");
+  const[msg,setMsg]=useState("");
+
+  const reset=()=>{setErr("");setMsg("");};
+
+  const signIn=async()=>{
+    if(!email||!password){setErr("Enter your email and password.");return;}
+    setLoading(true);reset();
+    const{data,error}=await supabase.auth.signInWithPassword({email:email.trim(),password});
+    setLoading(false);
+    if(error){setErr(error.message);return;}
+    if(data.session)onAuth(data.session.access_token,data.session.user.email);
   };
+
+  const signUp=async()=>{
+    if(!email||!password||!confirm){setErr("Fill in all fields.");return;}
+    if(password!==confirm){setErr("Passwords do not match.");return;}
+    if(password.length<8){setErr("Password must be at least 8 characters.");return;}
+    setLoading(true);reset();
+    const{data,error}=await supabase.auth.signUp({
+      email:email.trim(),password,
+      options:{emailRedirectTo:"https://kacygrine-cell.github.io/grineos-platform/"}
+    });
+    setLoading(false);
+    if(error){setErr(error.message);return;}
+    if(data.user&&!data.session){setMsg("Check your email to confirm your account, then sign in.");setTab("signin");}
+    else if(data.session)onAuth(data.session.access_token,data.session.user.email);
+  };
+
+  const sendReset=async()=>{
+    if(!email){setErr("Enter your email address.");return;}
+    setLoading(true);reset();
+    const{error}=await supabase.auth.resetPasswordForEmail(email.trim(),{
+      redirectTo:"https://kacygrine-cell.github.io/grineos-platform/"
+    });
+    setLoading(false);
+    if(error){setErr(error.message);return;}
+    setMsg("Reset link sent. Check your email.");setTab("signin");
+  };
+
+  const onKey=e=>{if(e.key==="Enter"){tab==="signin"?signIn():tab==="signup"?signUp():sendReset();}};
+
   return(
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:`linear-gradient(135deg,${C.bg} 0%,${C.borderLight} 100%)`,padding:20}}>
-      <div style={{width:"100%",maxWidth:400,background:C.white,borderRadius:12,border:`1px solid ${C.border}`,padding:40,boxShadow:"0 10px 25px rgba(0,0,0,0.04)"}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <h1 style={{fontFamily:T.display,fontSize:24,fontWeight:700,color:C.navy,marginBottom:4}}>GrineOS</h1>
-          <p style={{fontSize:14,color:C.soft}}>Regime-Driven Allocation Intelligence</p>
-        </div>
-        {[['Email','email','email','text'],['Password','password','current-password','password'],['Tenant','tenant','off','text']].map(([label,key,ac,type])=>(
-          <div key={key} style={{marginBottom:20}}>
-            <label style={lbl}>{label}</label>
-            <input style={inp} type={type} value={creds[key]} autoComplete={ac}
-              onChange={e=>setCreds({...creds,[key]:e.target.value})}
-              onKeyPress={e=>e.key==="Enter"&&handleAuth()}/>
+    <div style={{minHeight:"100vh",background:C.navy,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.body,padding:24}}>
+      <div style={{width:"100%",maxWidth:420}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:36}}>
+          <div style={{fontFamily:T.display,fontSize:34,fontWeight:700,color:"#fff",letterSpacing:"-0.02em",marginBottom:6}}>GrineOS</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",letterSpacing:"0.04em"}}>Regime-Driven Allocation Intelligence</div>
+          <div style={{marginTop:14,display:"inline-flex",alignItems:"center",gap:8,padding:"5px 14px",borderRadius:100,background:"rgba(22,163,74,0.12)",border:"1px solid rgba(22,163,74,0.3)"}}>
+            <span style={{width:6,height:6,borderRadius:"50%",background:"#16a34a",display:"inline-block"}}/>
+            <span style={{fontSize:11,color:"#16a34a",fontWeight:600,fontFamily:T.mono,letterSpacing:"0.1em"}}>LIVE</span>
           </div>
-        ))}
-        <button onClick={handleAuth} disabled={loading} style={{...btnPrimary,width:"100%",fontSize:14,opacity:loading?0.7:1}}>{loading?<Spin/>:"Sign In"}</button>
-        {err&&<div style={eBox}>{err}</div>}
-        <div style={{textAlign:"center",marginTop:24,fontSize:12,color:C.faint}}>KG&Co Capital Advisory . Powered by Grine Technologies</div>
+        </div>
+        {/* Card */}
+        <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:16,padding:32}}>
+          {tab!=="reset"&&(
+            <div style={{display:"flex",gap:0,marginBottom:26,background:"rgba(255,255,255,0.06)",borderRadius:8,padding:3}}>
+              {[["signin","Sign In"],["signup","Create Account"]].map(([t,label])=>(
+                <button key={t} onClick={()=>{setTab(t);reset();}}
+                  style={{flex:1,padding:"9px 0",fontSize:13,fontWeight:600,border:"none",borderRadius:6,cursor:"pointer",
+                    background:tab===t?"#fff":"transparent",color:tab===t?C.navy:"rgba(255,255,255,0.45)",transition:"all 0.2s"
+                  }}>{label}</button>
+              ))}
+            </div>
+          )}
+          {tab==="reset"&&(
+            <div style={{marginBottom:22}}>
+              <button onClick={()=>{setTab("signin");reset();}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.45)",cursor:"pointer",fontSize:13,padding:0}}>
+                Back to sign in
+              </button>
+              <div style={{fontFamily:T.display,fontSize:22,fontWeight:600,color:"#fff",marginTop:14}}>Reset password</div>
+            </div>
+          )}
+          {msg&&<div style={{marginBottom:18,padding:"11px 14px",borderRadius:8,background:"rgba(22,163,74,0.1)",border:"1px solid rgba(22,163,74,0.3)",fontSize:13,color:"#4ade80",lineHeight:1.5}}>{msg}</div>}
+          {err&&<div style={{marginBottom:18,padding:"11px 14px",borderRadius:8,background:"rgba(220,38,38,0.1)",border:"1px solid rgba(220,38,38,0.3)",fontSize:13,color:"#fca5a5",lineHeight:1.5}}>{err}</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            {[
+              {show:true,label:"Email",type:"email",val:email,set:setEmail,auto:"email",ph:"you@institution.com"},
+              {show:tab!=="reset",label:"Password",type:"password",val:password,set:setPassword,auto:tab==="signin"?"current-password":"new-password",ph:tab==="signup"?"At least 8 characters":""},
+              {show:tab==="signup",label:"Confirm Password",type:"password",val:confirm,set:setConfirm,auto:"new-password",ph:""},
+            ].filter(f=>f.show).map((f,i)=>(
+              <div key={i}>
+                <label style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",display:"block",marginBottom:6,fontFamily:T.mono}}>{f.label}</label>
+                <input type={f.type} value={f.val} onChange={e=>f.set(e.target.value)} onKeyPress={onKey} placeholder={f.ph} autoComplete={f.auto}
+                  style={{width:"100%",padding:"11px 14px",borderRadius:8,border:"1px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+            ))}
+            <button onClick={tab==="signin"?signIn:tab==="signup"?signUp:sendReset} disabled={loading}
+              style={{marginTop:4,width:"100%",padding:"13px",borderRadius:8,border:"none",
+                background:loading?"rgba(255,255,255,0.08)":"#fff",color:loading?"rgba(255,255,255,0.3)":C.navy,
+                fontSize:14,fontWeight:700,cursor:loading?"not-allowed":"pointer",transition:"all 0.2s"
+              }}>
+              {loading?"Please wait..."
+                :tab==="signin"?"Sign In"
+                :tab==="signup"?"Create Account"
+                :"Send Reset Link"}
+            </button>
+            {tab==="signin"&&(
+              <button onClick={()=>{setTab("reset");reset();}}
+                style={{background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:12,cursor:"pointer",textAlign:"center",padding:0}}>
+                Forgot your password?
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{textAlign:"center",marginTop:20,fontSize:11,color:"rgba(255,255,255,0.15)"}}>KG&Co Capital Advisory  Grine Technologies Ltd</div>
       </div>
     </div>
   );
 }
 
-// -- Benchmark Panel --
+
 function BenchmarkPanel({holdings, regimeConfig}){
   if(!holdings||!holdings.length)return null;
   const REGIME_OPTIMAL={
@@ -3261,6 +3352,39 @@ function App(){
   const[token,setToken]=useState(null);
   const[email,setEmail]=useState("");
   const[showLanding,setShowLanding]=useState(true);
+  const[authLoading,setAuthLoading]=useState(true);
+
+  useEffect(()=>{
+    // Restore existing session on load
+    supabase.auth.getSession().then(({data:{session}})=>{
+      if(session){setToken(session.access_token);setEmail(session.user.email);setShowLanding(false);}
+      setAuthLoading(false);
+    });
+    // Listen for auth changes
+    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      if(session){setToken(session.access_token);setEmail(session.user.email);}
+      else{setToken(null);setEmail("");setShowLanding(true);}
+    });
+    return()=>subscription.unsubscribe();
+  },[]);
+
+  const handleLogout=async()=>{
+    await supabase.auth.signOut();
+    setToken(null);setEmail("");setShowLanding(true);
+  };
+
+  if(authLoading){
+    return(
+      <div style={{minHeight:"100vh",background:"#0F1923",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontFamily:"Georgia,serif",fontSize:28,fontWeight:700,color:"#fff",marginBottom:16}}>GrineOS</div>
+          <div style={{display:"flex",gap:6,justifyContent:"center"}}>
+            {[0,1,2].map(i=><span key={i} style={{width:8,height:8,borderRadius:"50%",background:"#16a34a",display:"inline-block",animation:`pulse ${0.8+i*0.15}s ease infinite`}}/>)}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if(showLanding&&!token){
     return(
@@ -3272,8 +3396,8 @@ function App(){
   return(
     <RegimeProvider><RiskProfileProvider><PortfolioProvider>
       {token
-        ?<Dashboard token={token} userEmail={email} onLogout={()=>{setToken(null);setEmail("");setShowLanding(true);}}/>
-        :<AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);}}/>
+        ?<Dashboard token={token} userEmail={email} onLogout={handleLogout}/>
+        :<AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);setShowLanding(false);}}/>
       }
     </PortfolioProvider></RiskProfileProvider></RegimeProvider>
   );
