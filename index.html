@@ -2164,66 +2164,42 @@ function AgentTab({token,demoP}){
         ):messages.map((msg,i)=>{
           const isUser=msg.role==="user";
           // Parse Grine response into labelled sections
-            // Render markdown naturally - bold, paragraphs, lists
-  const renderMarkdown=(text)=>{
+            const applyBold=(txt)=>{
+    if(!txt)return txt;
+    const out=[];let i=0;
+    while(i<txt.length){
+      const ds=txt.indexOf('**',i);
+      if(ds===-1){out.push(txt.slice(i));break;}
+      const de=txt.indexOf('**',ds+2);
+      if(de===-1){out.push(txt.slice(i));break;}
+      if(ds>i)out.push(txt.slice(i,ds));
+      out.push(React.createElement('strong',{key:i,style:{fontWeight:700}},txt.slice(ds+2,de)));
+      i=de+2;
+    }
+    return out;
+  };
+  const parseGrine=(text)=>{
     if(!text)return null;
-    // Split into paragraphs
-    const paragraphs=text.split(/
-
-+/);
+    // Split on double newlines without using literal \n in string comparisons
+    const NL=String.fromCharCode(10);
+    const DBL=NL+NL;
+    const paras=text.split(DBL).map(p=>p.trim()).filter(Boolean);
+    if(!paras.length)return<p style={{fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(text)}</p>;
     return(
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {paragraphs.map((para,i)=>{
-          const trimmed=para.trim();
-          if(!trimmed)return null;
-          // Bullet list
-          if(trimmed.split('
-').every(l=>l.trim().startsWith('- ')||l.trim().startsWith('* ')||l.trim().startsWith('. '))){
-            return(
-              <ul key={i} style={{margin:0,paddingLeft:18,display:"flex",flexDirection:"column",gap:3}}>
-                {trimmed.split('
-').map((l,j)=>(
-                  <li key={j} style={{fontSize:14,lineHeight:1.6,color:C.navy}}>
-                    {renderInline(l.replace(/^[-*.]\s+/,''))}
-                  </li>
-                ))}
-              </ul>
-            );
+        {paras.map((para,idx)=>{
+          const lines=para.split(NL);
+          const isBullet=lines.length>1&&lines.every(l=>{const t=l.trim();return t[0]==="-"||t[0]==="*";});
+          if(isBullet){
+            return<ul key={idx} style={{margin:0,paddingLeft:20,display:"flex",flexDirection:"column",gap:4}}>
+              {lines.map((l,j)=><li key={j} style={{fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(l.replace(/^[-*]\s*/,""))}</li>)}
+            </ul>;
           }
-          // Numbered list
-          if(trimmed.split('
-').every(l=>/^\d+[\.\)]\s/.test(l.trim()))){
-            return(
-              <ol key={i} style={{margin:0,paddingLeft:20,display:"flex",flexDirection:"column",gap:3}}>
-                {trimmed.split('
-').map((l,j)=>(
-                  <li key={j} style={{fontSize:14,lineHeight:1.6,color:C.navy}}>
-                    {renderInline(l.replace(/^\d+[\.\)]\s+/,''))}
-                  </li>
-                ))}
-              </ol>
-            );
-          }
-          // Regular paragraph
-          return<p key={i} style={{margin:0,fontSize:14,lineHeight:1.65,color:C.navy}}>{renderInline(trimmed)}</p>;
+          return<p key={idx} style={{margin:0,fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(para)}</p>;
         })}
       </div>
     );
   };
-
-  const renderInline=(text)=>{
-    // Handle **bold**, *italic*, and plain text
-    const parts=text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-    return parts.map((part,i)=>{
-      if(part.startsWith('**')&&part.endsWith('**'))
-        return<strong key={i} style={{fontWeight:700,color:C.navy}}>{part.slice(2,-2)}</strong>;
-      if(part.startsWith('*')&&part.endsWith('*'))
-        return<em key={i}>{part.slice(1,-1)}</em>;
-      return part;
-    });
-  };
-
-  const parseGrine=(text)=>renderMarkdown(text);
           return(
             <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",marginBottom:16,animation:`slideIn 0.25s ease ${i*0.03}s both`}}>
               <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono,paddingLeft:isUser?0:2,paddingRight:isUser?2:0}}>
