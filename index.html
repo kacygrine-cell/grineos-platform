@@ -3348,29 +3348,167 @@ function Dashboard({token,userEmail,onLogout}){
   );
 }
 
+function PendingScreen({email, onLogout}){
+  return(
+    <div style={{minHeight:"100vh",background:C.navy,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.body,padding:24}}>
+      <div style={{maxWidth:420,width:"100%",textAlign:"center"}}>
+        <div style={{fontFamily:T.display,fontSize:32,fontWeight:700,color:"#fff",marginBottom:8}}>GrineOS</div>
+        <div style={{marginBottom:40,fontSize:13,color:"rgba(255,255,255,0.4)"}}>Regime-Driven Allocation Intelligence</div>
+        <div style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:16,padding:36}}>
+          <div style={{width:56,height:56,borderRadius:"50%",background:"rgba(180,83,9,0.15)",border:"2px solid rgba(180,83,9,0.4)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px",fontSize:24}}>
+          </div>
+          <div style={{fontFamily:T.display,fontSize:22,fontWeight:600,color:"#fff",marginBottom:10}}>Access Pending</div>
+          <p style={{fontSize:14,color:"rgba(255,255,255,0.5)",lineHeight:1.6,marginBottom:24}}>
+            Your account <strong style={{color:"rgba(255,255,255,0.8)"}}>{email}</strong> has been created and is pending approval.
+            You will receive an email once access is granted.
+          </p>
+          <div style={{padding:"12px 16px",borderRadius:8,background:"rgba(180,83,9,0.08)",border:"1px solid rgba(180,83,9,0.2)",fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:24,lineHeight:1.5}}>
+            GrineOS is an institutional platform. Access is reviewed and approved manually.
+          </div>
+          <button onClick={onLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.15)",borderRadius:8,color:"rgba(255,255,255,0.4)",padding:"10px 24px",cursor:"pointer",fontSize:13,fontFamily:T.body}}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel({userEmail, onLogout}){
+  const[users,setUsers]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[tab,setTab]=useState("pending");
+  const[msg,setMsg]=useState("");
+
+  const loadUsers=async()=>{
+    setLoading(true);
+    const{data,error}=await supabase.from("profiles").select("*").order("created_at",{ascending:false});
+    if(!error)setUsers(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{loadUsers();},[]);
+
+  const updateStatus=async(id,status,email)=>{
+    setMsg("");
+    const{error}=await supabase.from("profiles").update({
+      status,
+      approved_at:status==="approved"?new Date().toISOString():null,
+      approved_by:userEmail
+    }).eq("id",id);
+    if(error){setMsg("Error: "+error.message);return;}
+    setMsg(`${email} ${status}`);
+    loadUsers();
+  };
+
+  const filtered=users.filter(u=>tab==="all"?true:u.status===tab);
+  const counts={pending:users.filter(u=>u.status==="pending").length,approved:users.filter(u=>u.status==="approved").length,all:users.length};
+
+  return(
+    <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.body}}>
+      <div style={{background:C.navy,padding:"16px 32px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <span style={{fontFamily:T.display,fontSize:20,fontWeight:700,color:"#fff"}}>GrineOS</span>
+          <span style={{fontSize:11,padding:"3px 10px",borderRadius:100,background:"rgba(180,83,9,0.3)",color:"#fb923c",fontFamily:T.mono,fontWeight:600}}>ADMIN</span>
+        </div>
+        <button onClick={onLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,color:"rgba(255,255,255,0.6)",padding:"6px 16px",cursor:"pointer",fontSize:12}}>Sign out</button>
+      </div>
+      <div style={{maxWidth:900,margin:"0 auto",padding:"40px 32px"}}>
+        <div style={{marginBottom:28}}>
+          <h1 style={{fontFamily:T.display,fontSize:28,fontWeight:600,color:C.navy,fontStyle:"italic",marginBottom:4}}>User Management</h1>
+          <p style={{fontSize:14,color:C.soft}}>Review and approve access requests to GrineOS.</p>
+        </div>
+        {msg&&<div style={{marginBottom:16,padding:"10px 16px",borderRadius:8,background:C.greenBg,border:`1px solid ${C.green}33`,fontSize:13,color:C.green}}>{msg}</div>}
+        <div style={{display:"flex",gap:8,marginBottom:24}}>
+          {[["pending","Pending",counts.pending],["approved","Approved",counts.approved],["all","All Users",counts.all]].map(([t,label,count])=>(
+            <button key={t} onClick={()=>setTab(t)}
+              style={{padding:"8px 20px",borderRadius:8,border:`1px solid ${tab===t?C.navy:C.border}`,
+                background:tab===t?C.navy:"transparent",color:tab===t?"#fff":C.soft,
+                fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+              {label}
+              {count>0&&<span style={{fontSize:10,padding:"1px 7px",borderRadius:100,background:tab===t?"rgba(255,255,255,0.2)":C.borderLight,fontFamily:T.mono}}>{count}</span>}
+            </button>
+          ))}
+        </div>
+        {loading?<div style={{color:C.soft,padding:32,textAlign:"center"}}>Loading users...</div>:
+        filtered.length===0?<div style={{color:C.faint,padding:32,textAlign:"center",fontStyle:"italic"}}>No {tab} users.</div>:(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {filtered.map(user=>(
+              <div key={user.id} style={{background:C.white,border:`1px solid ${C.border}`,borderRadius:10,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:2}}>{user.email}</div>
+                  <div style={{fontSize:11,color:C.faint,fontFamily:T.mono,display:"flex",gap:12}}>
+                    <span>Joined {new Date(user.created_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</span>
+                    {user.approved_at&&<span>Approved {new Date(user.approved_at).toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</span>}
+                    <span style={{color:user.role==="admin"?"#7c3aed":C.faint,fontWeight:600}}>{user.role.toUpperCase()}</span>
+                  </div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:11,padding:"3px 10px",borderRadius:100,fontFamily:T.mono,fontWeight:600,
+                    background:user.status==="approved"?C.greenBg:user.status==="rejected"?"rgba(220,38,38,0.08)":"rgba(180,83,9,0.08)",
+                    color:user.status==="approved"?C.green:user.status==="rejected"?"#dc2626":"#b45309"
+                  }}>{user.status.toUpperCase()}</span>
+                  {user.status!=="approved"&&user.role!=="admin"&&(
+                    <button onClick={()=>updateStatus(user.id,"approved",user.email)}
+                      style={{padding:"6px 16px",borderRadius:6,border:"none",background:C.green,color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                      Approve
+                    </button>
+                  )}
+                  {user.status==="approved"&&user.role!=="admin"&&(
+                    <button onClick={()=>updateStatus(user.id,"rejected",user.email)}
+                      style={{padding:"6px 16px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:C.soft,fontSize:12,cursor:"pointer"}}>
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const[token,setToken]=useState(null);
   const[email,setEmail]=useState("");
+  const[profile,setProfile]=useState(null);
   const[showLanding,setShowLanding]=useState(true);
   const[authLoading,setAuthLoading]=useState(true);
 
+  const loadProfile=async(userId, userEmail)=>{
+    const{data}=await supabase.from("profiles").select("*").eq("id",userId).single();
+    setProfile(data);
+    return data;
+  };
+
   useEffect(()=>{
-    // Restore existing session on load
-    supabase.auth.getSession().then(({data:{session}})=>{
-      if(session){setToken(session.access_token);setEmail(session.user.email);setShowLanding(false);}
+    supabase.auth.getSession().then(async({data:{session}})=>{
+      if(session){
+        setToken(session.access_token);
+        setEmail(session.user.email);
+        await loadProfile(session.user.id, session.user.email);
+        setShowLanding(false);
+      }
       setAuthLoading(false);
     });
-    // Listen for auth changes
-    const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
-      if(session){setToken(session.access_token);setEmail(session.user.email);}
-      else{setToken(null);setEmail("");setShowLanding(true);}
+    const{data:{subscription}}=supabase.auth.onAuthStateChange(async(_event,session)=>{
+      if(session){
+        setToken(session.access_token);
+        setEmail(session.user.email);
+        await loadProfile(session.user.id, session.user.email);
+        setShowLanding(false);
+      }else{
+        setToken(null);setEmail("");setProfile(null);setShowLanding(true);
+      }
     });
     return()=>subscription.unsubscribe();
   },[]);
 
   const handleLogout=async()=>{
     await supabase.auth.signOut();
-    setToken(null);setEmail("");setShowLanding(true);
+    setToken(null);setEmail("");setProfile(null);setShowLanding(true);
   };
 
   if(authLoading){
@@ -3393,15 +3531,38 @@ function App(){
       </PortfolioProvider></RiskProfileProvider></RegimeProvider>
     );
   }
+
+  if(!token) return <AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);setShowLanding(false);}}/>;
+
+  // Admin panel
+  if(profile?.role==="admin") return <AdminPanel userEmail={email} onLogout={handleLogout}/>;
+
+  // Pending approval
+  if(!profile||profile?.status==="pending") return <PendingScreen email={email} onLogout={handleLogout}/>;
+
+  // Rejected
+  if(profile?.status==="rejected"){
+    return(
+      <div style={{minHeight:"100vh",background:C.navy,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:T.body}}>
+        <div style={{maxWidth:380,textAlign:"center",padding:32}}>
+          <div style={{fontFamily:T.display,fontSize:28,color:"#fff",marginBottom:16}}>GrineOS</div>
+          <div style={{background:"rgba(220,38,38,0.1)",border:"1px solid rgba(220,38,38,0.3)",borderRadius:12,padding:28,color:"#fca5a5",fontSize:14,lineHeight:1.6,marginBottom:20}}>
+            Your access request has not been approved. Contact kacy@grineos.com for more information.
+          </div>
+          <button onClick={handleLogout} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:8,color:"rgba(255,255,255,0.5)",padding:"10px 24px",cursor:"pointer",fontSize:13}}>Sign out</button>
+        </div>
+      </div>
+    );
+  }
+
+  // Approved user   full dashboard
   return(
     <RegimeProvider><RiskProfileProvider><PortfolioProvider>
-      {token
-        ?<Dashboard token={token} userEmail={email} onLogout={handleLogout}/>
-        :<AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);setShowLanding(false);}}/>
-      }
+      <Dashboard token={token} userEmail={email} onLogout={handleLogout}/>
     </PortfolioProvider></RiskProfileProvider></RegimeProvider>
   );
 }
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
