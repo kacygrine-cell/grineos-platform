@@ -152,7 +152,7 @@ function RegimeProvider({children}){
     drivers:{volatility:liveConfig.drivers?.volatility?.score||0,momentum:liveConfig.drivers?.growth?.score||0,liquidity:liveConfig.drivers?.liquidity?.score||0},
     mode:'auto',timeHorizon:'3M'
   };
-  return   // Replay config - built from replay API data
+  // Replay config - built from replay API data
   const replayConfig=replayModeData?{
     label:replayModeData.regime||"FOG",
     subtitle:replayModeData.subtitle||"",
