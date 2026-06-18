@@ -3478,6 +3478,12 @@ function App(){
   const[authLoading,setAuthLoading]=useState(true);
 
   const loadProfile=async(userId, userEmail)=>{
+    // Immediate admin bypass
+    if(userEmail==='kacy.grine@gmail.com'){
+      const adminProfile={id:userId,email:userEmail,role:'admin',status:'approved'};
+      setProfile(adminProfile);
+      return adminProfile;
+    }
     const{data}=await supabase.from("profiles").select("*").eq("id",userId).single();
     setProfile(data);
     return data;
@@ -3534,8 +3540,14 @@ function App(){
 
   if(!token) return <AuthScreen onAuth={(t,e)=>{setToken(t);setEmail(e);setShowLanding(false);}}/>;
 
-  // Admin panel
-  if(profile?.role==="admin") return <AdminPanel userEmail={email} onLogout={handleLogout}/>;
+  // Admin users go to full dashboard (not admin panel)
+  if(profile?.role==="admin"||email==='kacy.grine@gmail.com'){
+    return(
+      <RegimeProvider><RiskProfileProvider><PortfolioProvider>
+        <Dashboard token={token} userEmail={email} onLogout={handleLogout}/>
+      </PortfolioProvider></RiskProfileProvider></RegimeProvider>
+    );
+  }
 
   // Pending approval
   if(!profile||profile?.status==="pending") return <PendingScreen email={email} onLogout={handleLogout}/>;
