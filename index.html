@@ -727,7 +727,7 @@ function EducationalLanding({onEnterPlatform}){
 
 /*     REGIME TOP BAR     */
 function RegimeTopBar(){
-  const{regime,setRegime,regimeConfig,engineError,lastUpdated,refresh}=useRegime();
+  const{regime,setRegime,regimeConfig,engineError,lastUpdated,refresh,isReplayMode}=useRegime();
   const color=regimeConfig.color;
   const driverSymbols={volatility:regime.drivers.volatility<0?' ':' ',momentum:regime.drivers.momentum>0?' ':' ',liquidity:regime.drivers.liquidity>0?' ':' '};
   const driverColors={volatility:regime.drivers.volatility<0?'#16a34a':'#dc2626',momentum:regime.drivers.momentum>0?'#16a34a':'#dc2626',liquidity:regime.drivers.liquidity>0?'#16a34a':'#dc2626'};
