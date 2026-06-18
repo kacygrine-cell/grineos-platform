@@ -123,6 +123,7 @@ const REGIME_PARAMETERS={
 function RegimeProvider({children}){
   const{summary,loading,error,lastUpdated,refresh}=useEngineA();
   const[isRegimeActive,setIsRegimeActive]=useState(true);
+  const[replayModeData,setReplayModeData]=useState(null);
   // Build regimeConfig from live Engine A data, fall back to static if offline
   const code=summary?.state?.code||"SURGE";
   const liveConfig={
@@ -151,7 +152,27 @@ function RegimeProvider({children}){
     drivers:{volatility:liveConfig.drivers?.volatility?.score||0,momentum:liveConfig.drivers?.growth?.score||0,liquidity:liveConfig.drivers?.liquidity?.score||0},
     mode:'auto',timeHorizon:'3M'
   };
-  return <RegimeContext.Provider value={{regime,setRegime:()=>{},isRegimeActive,setIsRegimeActive,regimeConfig:liveConfig,engineLoading:loading,engineError:error,lastUpdated,refresh}}>{children}</RegimeContext.Provider>;
+  return   // Replay config - built from replay API data
+  const replayConfig=replayModeData?{
+    label:replayModeData.regime||"FOG",
+    subtitle:replayModeData.subtitle||"",
+    color:replayModeData.color||"#64748b",
+    bgColor:(replayModeData.color||"#64748b")+"15",
+    confidence:replayModeData.confidence||50,
+    confidence_delta:0,
+    duration_days:0,
+    instinct:replayModeData.instinct||"",
+    narrative:{text:replayModeData.narrative||"",risk_flag:replayModeData.risk_flag||""},
+    drivers:{
+      growth:{score:replayModeData.drivers?.growth?.score||0,label:replayModeData.drivers?.growth?.label||"Stable"},
+      inflation:{score:replayModeData.drivers?.inflation?.score||0,label:replayModeData.drivers?.inflation?.label||"Contained"},
+      liquidity:{score:replayModeData.drivers?.liquidity?.score||0,label:replayModeData.drivers?.liquidity?.label||"Neutral"},
+      volatility:{score:replayModeData.drivers?.volatility?.score||0,label:replayModeData.drivers?.volatility?.label||"Moderate"},
+    },
+    exposure:{rows:(replayModeData.exposure_rows||[]).map(r=>({...r}))},
+    transitions:replayModeData.transitions||[],
+  }:null;
+  return <RegimeContext.Provider value={{regime,setRegime:()=>{},isRegimeActive,setIsRegimeActive,regimeConfig:replayModeData?replayConfig:liveConfig,liveConfig,isReplayMode:!!replayModeData,setReplayMode:setReplayModeData,engineLoading:loading,engineError:error,lastUpdated,refresh}}>{children}</RegimeContext.Provider>;
 }
 
 
@@ -753,7 +774,7 @@ function RegimeTopBar(){
         <div style={{display:'flex',alignItems:'center',gap:12}}>
           <div style={{padding:'4px 10px',borderRadius:4,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',display:'flex',alignItems:'center',gap:6}}>
             <span style={{width:6,height:6,borderRadius:'50%',background:engineError?'#dc2626':'#16a34a',display:'inline-block'}}/>
-            <span style={{fontSize:9,fontFamily:T.mono,letterSpacing:'0.1em',opacity:0.8}}>{engineError?"OFFLINE":"LIVE"}</span>
+            <span style={{fontSize:9,fontFamily:T.mono,letterSpacing:'0.1em',opacity:0.8}}>{isReplayMode?"REPLAY":engineError?"OFFLINE":"LIVE"}</span>
           </div>
           <button onClick={refresh} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:'4px 6px'}} title="Refresh Engine A"> </button>
           <div style={{display:'flex',backgroundColor:C.navyLight,borderRadius:4,overflow:'hidden'}}>
@@ -2511,7 +2532,7 @@ function BacktestTab({token, demoP}){
   const[endDate,setEndDate]=useState(()=>new Date().toISOString().slice(0,10));
   const[rebalance,setRebalance]=useState("monthly");
   const[apiMode,setApiMode]=useState(null);
-  const{regimeConfig,isRegimeActive,setIsRegimeActive}=useRegime();
+  const{regimeConfig,isRegimeActive,setIsRegimeActive,isReplayMode}=useRegime();
   const{getActivePortfolio}=usePortfolio();
 
   const run=async()=>{
@@ -3271,11 +3292,131 @@ function ICModePanel({onClose, demoP}){
   );
 }
 
+
+//    Regime Replay                                                              
+const REPLAY_PRESETS = [
+  {label:"GFC Crash",    date:"2008-10-01"},
+  {label:"GFC Recovery", date:"2009-06-01"},
+  {label:"Bull 2017",    date:"2017-06-01"},
+  {label:"COVID Crash",  date:"2020-03-16"},
+  {label:"COVID Rally",  date:"2020-11-01"},
+  {label:"Inflation 22", date:"2022-03-15"},
+  {label:"Hiking Peak",  date:"2022-10-01"},
+  {label:"AI Rally",     date:"2023-07-01"},
+];
+
+// Convert date string to slider value (days since 2010-01-01)
+const dateToSlider = (dateStr) => {
+  const origin = new Date("2010-01-01");
+  const d = new Date(dateStr);
+  return Math.round((d - origin) / (1000*60*60*24));
+};
+
+const sliderToDate = (val) => {
+  const d = new Date("2010-01-01");
+  d.setDate(d.getDate() + parseInt(val));
+  return d.toISOString().slice(0,10);
+};
+
+const SLIDER_MAX = dateToSlider(new Date().toISOString().slice(0,10)) - 1;
+
+function RegimeReplayBar({onExit}) {
+  const[sliderVal,setSliderVal]=useState(dateToSlider("2022-03-15"));
+  const[replayData,setReplayData]=useState(null);
+  const[loading,setLoading]=useState(false);
+  const[err,setErr]=useState("");
+  const{setReplayMode}=useRegime();
+  const debounceRef=React.useRef(null);
+
+  const fetchReplay=async(date)=>{
+    setLoading(true);setErr("");
+    try{
+      const res=await fetch(`${ENGINE_A}/regime/replay?date=${date}`);
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.detail||"Replay failed");
+      setReplayData(data);
+      setReplayMode(data);
+    }catch(e){setErr(e.message);}
+    finally{setLoading(false);}
+  };
+
+  // Fetch on mount with default date
+  useEffect(()=>{fetchReplay(sliderToDate(sliderVal));},[]);
+
+  const handleSlider=(e)=>{
+    const val=e.target.value;
+    setSliderVal(val);
+    if(debounceRef.current)clearTimeout(debounceRef.current);
+    debounceRef.current=setTimeout(()=>fetchReplay(sliderToDate(val)),350);
+  };
+
+  const handlePreset=(date)=>{
+    const val=dateToSlider(date);
+    setSliderVal(val);
+    fetchReplay(date);
+  };
+
+  const currentDate=sliderToDate(sliderVal);
+  const displayDate=new Date(currentDate).toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"});
+  const RCOLS={"SURGE":"#16a34a","CRUISE":"#22c55e","PRESSURE":"#b45309","SLIDE":"#f97316","SHOCK":"#dc2626","FOG":"#7c3aed"};
+  const rColor=RCOLS[replayData?.regime]||"#64748b";
+
+  return(
+    <div style={{background:C.navy,borderBottom:"2px solid #7c3aed",padding:"0 40px",fontFamily:T.body}}>
+      {/* Top row: label + date + exit */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0 0"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:10,padding:"3px 10px",borderRadius:4,background:"rgba(124,58,237,0.3)",color:"#a78bfa",fontFamily:T.mono,fontWeight:700,letterSpacing:"0.1em"}}>REPLAY MODE</span>
+          <span style={{fontSize:13,color:"rgba(255,255,255,0.8)",fontWeight:500}}>{displayDate}</span>
+          {loading&&<span style={{fontSize:11,color:"rgba(255,255,255,0.4)",fontFamily:T.mono}}>Loading...</span>}
+          {err&&<span style={{fontSize:11,color:"#fca5a5"}}>{err}</span>}
+        </div>
+        {replayData&&!loading&&(
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:18,fontWeight:700,color:rColor,fontFamily:T.display}}>{replayData.regime}</span>
+            <span style={{fontSize:13,color:"rgba(255,255,255,0.5)"}}>{replayData.confidence?.toFixed(0)}% conf</span>
+            <span style={{fontSize:12,color:"rgba(255,255,255,0.35)",maxWidth:300,fontStyle:"italic",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{replayData.instinct}</span>
+          </div>
+        )}
+        <button onClick={()=>{setReplayMode(null);onExit();}}
+          style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:6,color:"rgba(255,255,255,0.6)",padding:"6px 16px",cursor:"pointer",fontSize:12,fontFamily:T.body}}>
+          Exit Replay
+        </button>
+      </div>
+
+      {/* Slider */}
+      <div style={{padding:"10px 0 6px"}}>
+        <input type="range" min={0} max={SLIDER_MAX} value={sliderVal} onChange={handleSlider}
+          style={{width:"100%",height:4,accentColor:"#7c3aed",cursor:"pointer",outline:"none"}}
+        />
+        <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
+          {["2010","2012","2014","2016","2018","2020","2022","2024","Now"].map((y,i)=>(
+            <span key={i} style={{fontSize:9,color:"rgba(255,255,255,0.25)",fontFamily:T.mono}}>{y}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Preset buttons */}
+      <div style={{display:"flex",gap:6,paddingBottom:10,flexWrap:"wrap"}}>
+        {REPLAY_PRESETS.map(p=>(
+          <button key={p.date} onClick={()=>handlePreset(p.date)}
+            style={{fontSize:10,padding:"3px 10px",borderRadius:4,border:"1px solid rgba(255,255,255,0.15)",
+              background:currentDate===p.date?"rgba(124,58,237,0.3)":"transparent",
+              color:currentDate===p.date?"#a78bfa":"rgba(255,255,255,0.4)",
+              cursor:"pointer",fontFamily:T.mono,transition:"all 0.15s"
+            }}>{p.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /*     DASHBOARD     */
 function Dashboard({token,userEmail,onLogout}){
   const[tab,setTab]=useState("demo");const[health,setHealth]=useState(null);const[demoP,setDemoP]=useState(null);
   const[regimeSidebarOpen,setRegimeSidebarOpen]=useState(false);
   const[showIC,setShowIC]=useState(false);
+  const[showReplay,setShowReplay]=useState(false);
   const{regimeConfig,engineError,lastUpdated}=useRegime();
   const{profile}=useRiskProfile();
   const[showSetup,setShowSetup]=useState(!profile.completed);
@@ -3309,6 +3450,10 @@ function Dashboard({token,userEmail,onLogout}){
           <span style={{fontSize:12,color:C.soft}}>Regime-Driven Allocation Intelligence</span>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <button onClick={()=>setShowReplay(!showReplay)} style={{...btnOutline,padding:"7px 16px",fontSize:12,display:'flex',alignItems:'center',gap:7,borderColor:showReplay?"#7c3aed":C.border,color:showReplay?"#7c3aed":"inherit",background:showReplay?"rgba(124,58,237,0.08)":"transparent"}}>
+            <span style={{fontSize:11}}>&#x25C4;&#x25BA;</span>
+            <span>Replay</span>
+          </button>
           <button onClick={()=>setShowIC(true)} style={{...btnPrimary,padding:"7px 18px",fontSize:12,display:'flex',alignItems:'center',gap:8,background:"linear-gradient(135deg,"+C.navy+" 0%,"+C.navyLight+" 100%)"}}>
             <span style={{fontSize:13}}>IC</span>
             <span>Generate Brief</span>
@@ -3331,6 +3476,7 @@ function Dashboard({token,userEmail,onLogout}){
         </div>
       </header>
       <RegimeTopBar/>
+      {showReplay&&<RegimeReplayBar onExit={()=>{setShowReplay(false);}}/>}
       <nav style={{display:"flex",gap:0,borderBottom:`1px solid ${C.border}`,background:C.white,paddingLeft:32,flexShrink:0}}>
         {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"12px 20px",border:"none",borderBottom:tab===t.id?`2px solid ${C.navy}`:"2px solid transparent",background:"transparent",color:tab===t.id?C.navy:C.soft,fontFamily:T.body,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all .15s"}}>{t.label}</button>)}
       </nav>
