@@ -2357,23 +2357,54 @@ function AgentTab({token,demoP}){
   );
 }
 
-function PerfChart({data,color,height=160}){
-  color=color||"#2563eb";
-  if(!data||data.length<2)return<div style={{height,display:"flex",alignItems:"center",justifyContent:"center",background:"#f1f5f9",borderRadius:6,color:"#64748b",fontSize:13}}>No performance data</div>;
-  const W=600,H=height,pad=24;
-  const vals=data.map(d=>typeof d==="object"?d.value:d);
-  const minV=Math.min(...vals),maxV=Math.max(...vals),range=maxV-minV||0.01;
-  const pts=vals.map((v,i)=>`${pad+(i/(vals.length-1))*(W-pad*2)},${H-pad-((v-minV)/range)*(H-pad*2)}`).join(" ");
-  const area=`${pts} ${W-pad},${H-pad} ${pad},${H-pad}`;
+function PerfChart({data,dates,color,height=160,onDateClick}){
+  const[hoverIdx,setHoverIdx]=useState(null);
+  if(!data||data.length<2)return<div style={{height,display:"flex",alignItems:"center",justifyContent:"center",color:C.faint,fontSize:12}}>No data</div>;
+  const min=Math.min(...data),max=Math.max(...data),range=max-min||1;
+  const w=600,h=height;
+  const pts=data.map((v,i)=>[(i/(data.length-1))*w, h-(((v-min)/range)*(h*0.85)+h*0.05)]);
+  const ptStr=pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ");
+  const handleMouseMove=(e)=>{
+    const rect=e.currentTarget.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width;
+    setHoverIdx(Math.max(0,Math.min(data.length-1,Math.round(x*(data.length-1)))));
+  };
+  const handleClick=(e)=>{
+    if(!dates||!onDateClick)return;
+    const rect=e.currentTarget.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width;
+    const idx=Math.max(0,Math.min(dates.length-1,Math.round(x*(data.length-1))));
+    if(dates[idx])onDateClick(dates[idx]);
+  };
+  const hx=hoverIdx!==null?pts[hoverIdx][0]:null;
+  const hy=hoverIdx!==null?pts[hoverIdx][1]:null;
+  const hVal=hoverIdx!==null?data[hoverIdx]:null;
+  const hDate=hoverIdx!==null&&dates?dates[hoverIdx]:null;
+  const gradId="cg"+color.replace(/[^a-z0-9]/gi,"");
   return(
-    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{display:"block"}}>
-      <defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity="0.12"/><stop offset="100%" stopColor={color} stopOpacity="0"/></linearGradient></defs>
-      <polygon points={area} fill="url(#pg)"/>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round"/>
-      {minV<0&&maxV>0&&<line x1={pad} x2={W-pad} y1={H-pad-((0-minV)/range)*(H-pad*2)} y2={H-pad-((0-minV)/range)*(H-pad*2)} stroke="#e2e8f0" strokeWidth={1} strokeDasharray="4,3"/>}
-      <text x={pad} y={14} fill="#64748b" fontSize={10} fontFamily="IBM Plex Mono,monospace">{maxV>0?"+":""}{(maxV*100).toFixed(1)}%</text>
-      <text x={pad} y={H-6} fill="#64748b" fontSize={10} fontFamily="IBM Plex Mono,monospace">{minV>0?"+":""}{(minV*100).toFixed(1)}%</text>
-    </svg>
+    <div style={{position:"relative",cursor:onDateClick?"crosshair":"default"}}>
+      <svg viewBox={"0 0 "+w+" "+h} style={{width:"100%",height,display:"block"}} preserveAspectRatio="none"
+        onMouseMove={handleMouseMove} onMouseLeave={()=>setHoverIdx(null)} onClick={handleClick}>
+        <defs><linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </linearGradient></defs>
+        <polygon points={"0,"+h+" "+ptStr+" "+w+","+h} fill={"url(#"+gradId+")"}/>
+        <polyline points={ptStr} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>
+        <line x1="0" y1={h*0.95} x2={w} y2={h*0.95} stroke={C.border} strokeWidth="0.5"/>
+        {hx!==null&&<>
+          <line x1={hx} y1={0} x2={hx} y2={h} stroke={color} strokeWidth="0.8" strokeDasharray="3,3"/>
+          <circle cx={hx} cy={hy} r="4" fill={color} stroke="#fff" strokeWidth="1.5"/>
+        </>}
+      </svg>
+      {hx!==null&&hVal!==null&&(
+        <div style={{position:"absolute",top:4,left:8,fontSize:10,fontFamily:T.mono,background:"rgba(255,255,255,0.95)",padding:"3px 8px",borderRadius:4,border:"1px solid "+C.border,pointerEvents:"none"}}>
+          {hDate&&<span style={{marginRight:8,color:C.soft}}>{hDate}</span>}
+          <span style={{color,fontWeight:700}}>{hVal>=0?"+":""}{(hVal*100).toFixed(1)}%</span>
+          {onDateClick&&<span style={{marginLeft:8,color:C.faint,fontSize:9}}>click to inspect</span>}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2532,8 +2563,21 @@ function BacktestTab({token, demoP}){
   const[endDate,setEndDate]=useState(()=>new Date().toISOString().slice(0,10));
   const[rebalance,setRebalance]=useState("monthly");
   const[apiMode,setApiMode]=useState(null);
+  const[selectedDateData,setSelectedDateData]=useState(null);
+  const[loadingDate,setLoadingDate]=useState(false);
   const{regimeConfig,isRegimeActive,setIsRegimeActive,isReplayMode}=useRegime();
   const{getActivePortfolio}=usePortfolio();
+
+  const fetchDateDetail=async(date)=>{
+    if(!date)return;
+    setLoadingDate(true);setSelectedDateData(null);
+    try{
+      const res=await fetch(`${ENGINE_A}/regime/replay?date=${date}`);
+      const data=await res.json();
+      if(res.ok)setSelectedDateData(data);
+    }catch(e){}
+    setLoadingDate(false);
+  };
 
   const run=async()=>{
     setLoading(true);setErr("");setResult(null);setApiMode(null);
@@ -2604,8 +2648,11 @@ function BacktestTab({token, demoP}){
         </div>
         {m.cumulative_returns&&m.cumulative_returns.length>1&&(
           <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:12}}>
-            <div style={{fontSize:10,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,fontFamily:T.mono}}>Cumulative Return</div>
-            <PerfChart data={m.cumulative_returns} color={color}/>
+            <div style={{fontSize:10,color:C.soft,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4,fontFamily:T.mono}}>
+              Cumulative Return
+              <span style={{marginLeft:8,color:C.faint,fontWeight:400}}>  click any point to inspect the market environment</span>
+            </div>
+            <PerfChart data={m.cumulative_returns} dates={m.dates} color={color} onDateClick={fetchDateDetail}/>
           </div>
         )}
       </div>
@@ -2646,7 +2693,7 @@ function BacktestTab({token, demoP}){
             <div>
               <label style={lbl}>Lookback Period</label>
               <select style={{...inp,fontSize:13}} value={period} onChange={e=>setPeriod(e.target.value)}>
-                {[["1y","1 Year"],["2y","2 Years"],["3y","3 Years"],["5y","5 Years"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                {[["1y","1 Year"],["2y","2 Years"],["3y","3 Years"],["5y","5 Years"],["7y","7 Years"],["10y","10 Years"],["max","Max (2010 )"]].map(([v,l])=><option key={v} value={v}>{l}</option>)}
               </select>
             </div>
           ):(
@@ -2724,6 +2771,67 @@ function BacktestTab({token, demoP}){
             <ResultPanel data={result.base} label="Buy and Hold" color={C.blue}/>
             <ResultPanel data={result.regime_adjusted} label="Regime Adjusted" color={regimeConfig.color}/>
           </div>
+
+          {/* Date Detail Panel */}
+          {(selectedDateData||loadingDate)&&(
+            <div style={{marginBottom:20,background:C.white,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+              {loadingDate?(
+                <div style={{padding:20,display:"flex",alignItems:"center",gap:10,color:C.soft,fontSize:13}}><Spin dark/>Loading market environment...</div>
+              ):(()=>{
+                const d=selectedDateData;
+                const RCOLS={"SURGE":"#16a34a","CRUISE":"#22c55e","PRESSURE":"#b45309","SLIDE":"#f97316","SHOCK":"#dc2626","FOG":"#7c3aed"};
+                const rc=RCOLS[d.regime]||"#64748b";
+                return(
+                  <div>
+                    <div style={{background:C.navy,padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12}}>
+                        <span style={{fontSize:10,color:"rgba(255,255,255,0.4)",fontFamily:T.mono}}>MARKET ENVIRONMENT</span>
+                        <span style={{fontSize:13,color:"rgba(255,255,255,0.7)",fontFamily:T.mono}}>{d.actual_date}</span>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:16,fontWeight:700,color:rc,fontFamily:T.display}}>{d.regime}</span>
+                        <span style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>{d.confidence?.toFixed(0)}% conf</span>
+                        <button onClick={()=>setSelectedDateData(null)} style={{background:"none",border:"1px solid rgba(255,255,255,0.2)",borderRadius:4,color:"rgba(255,255,255,0.5)",padding:"3px 10px",cursor:"pointer",fontSize:11}}>close</button>
+                      </div>
+                    </div>
+                    <div style={{padding:20}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
+                        {[["Growth",d.drivers?.growth],["Inflation",d.drivers?.inflation],["Liquidity",d.drivers?.liquidity],["Volatility",d.drivers?.volatility]].map(([name,dr])=>{
+                          if(!dr)return null;
+                          const sc=dr.score||0;
+                          const dColor=sc>0.5?"#16a34a":sc<-0.5?"#dc2626":C.soft;
+                          return(
+                            <div key={name} style={{background:C.bg,borderRadius:6,padding:"10px 14px",border:`1px solid ${C.border}`}}>
+                              <div style={{fontSize:9,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono}}>{name}</div>
+                              <div style={{fontSize:15,fontWeight:600,color:dColor,marginBottom:2}}>{dr.label}</div>
+                              <div style={{fontSize:11,fontFamily:T.mono,color:dColor}}>{sc>0?"+":""}{sc.toFixed(2)}s</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {d.narrative&&<div style={{padding:"10px 14px",borderRadius:6,background:rc+"10",border:`1px solid ${rc}33`,fontSize:13,color:C.navy,fontStyle:"italic",marginBottom:12}}>{d.narrative}</div>}
+                      {d.exposure_rows&&d.exposure_rows.length>0&&(
+                        <div>
+                          <div style={{fontSize:10,fontWeight:600,color:C.soft,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontFamily:T.mono}}>Recommended Allocation</div>
+                          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                            {d.exposure_rows.map((row,i)=>{
+                              const sigC={"MAX OVERWEIGHT":"#16a34a","OVERWEIGHT":"#22c55e","NEUTRAL":C.soft,"FLOOR":"#b45309","ELEVATED":"#b45309","UNDERWEIGHT":"#f97316","MAX UNDERWEIGHT":"#dc2626","MAXIMUM":"#dc2626"}[row.signal]||C.soft;
+                              return(
+                                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 10px",borderRadius:5,background:C.bg}}>
+                                  <span style={{fontSize:11,color:C.navy,fontWeight:500}}>{row.asset_class}</span>
+                                  <span style={{fontSize:10,fontWeight:700,color:sigC,fontFamily:T.mono}}>{row.signal}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {result.regime_breakdown&&(
             <div style={{background:C.white,borderRadius:8,border:`1px solid ${C.border}`,padding:20}}>
