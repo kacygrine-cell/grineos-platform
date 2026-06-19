@@ -728,93 +728,109 @@ function EducationalLanding({onEnterPlatform}){
 /*     REGIME TOP BAR     */
 function RegimeTopBar(){
   const{regime,setRegime,regimeConfig,engineError,lastUpdated,refresh,isReplayMode}=useRegime();
+  const[expanded,setExpanded]=useState(false);
   const color=regimeConfig.color;
-  const driverSymbols={volatility:regime.drivers.volatility<0?' ':' ',momentum:regime.drivers.momentum>0?' ':' ',liquidity:regime.drivers.liquidity>0?' ':' '};
-  const driverColors={volatility:regime.drivers.volatility<0?'#16a34a':'#dc2626',momentum:regime.drivers.momentum>0?'#16a34a':'#dc2626',liquidity:regime.drivers.liquidity>0?'#16a34a':'#dc2626'};
-  const transitions={expansion:0.73,protection:0.12,transition:0.15};
-  // Use live transition data if available
-  const liveTransitions=regimeConfig.transitions&&regimeConfig.transitions.length>0
-    ?Object.fromEntries(regimeConfig.transitions.map(t=>[t.regime.toLowerCase(),t.probability]))
-    :transitions;
+  const conf=Math.round(regimeConfig.confidence||regime.confidence||0);
+  const delta=regimeConfig.confidence_delta||regimeConfig.confidenceDelta||0;
+  const drivers=regimeConfig.drivers||{};
+  const transitions=(regimeConfig.transitions||[]).slice(0,3);
+
+  const DriverPill=({label,score})=>{
+    const s=parseFloat(score)||0;
+    const c=s>0.5?"#16a34a":s<-0.5?"#dc2626":C.soft;
+    const bg=s>0.5?"rgba(22,163,74,0.08)":s<-0.5?"rgba(220,38,38,0.08)":"rgba(100,116,139,0.06)";
+    return(
+      <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:4,background:bg}}>
+        <span style={{fontSize:9,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.06em",fontFamily:T.mono}}>{label.slice(0,3)}</span>
+        <span style={{fontSize:11,fontWeight:700,color:c,fontFamily:T.mono}}>{s>0?"+":""}{s.toFixed(1)}</span>
+      </div>
+    );
+  };
+
   return(
-    <div style={{background:`linear-gradient(135deg,${C.navy} 0%,${C.navyLight} 100%)`,color:'#fff',borderBottom:`1px solid ${C.navyLight}`,position:'sticky',top:0,zIndex:50}}>
-      <div style={{height:48,display:'flex',alignItems:'center',justifyContent:'space-between',padding:'0 32px'}}>
-        <div style={{display:'flex',alignItems:'center',gap:16}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <div className="regime-indicator" style={{width:8,height:8,borderRadius:'50%',backgroundColor:regimeConfig.color}}/>
-            <span style={{fontFamily:T.display,fontSize:16,fontWeight:600,letterSpacing:'0.02em'}}>{regimeConfig.label}</span>
-            <span style={{fontSize:11,opacity:0.5,fontWeight:300}}>{regimeConfig.subtitle||""}</span>
+    <div style={{background:C.navy,borderBottom:`1px solid rgba(255,255,255,0.08)`,flexShrink:0}}>
+      {/* Main compact bar */}
+      <div style={{height:44,display:"flex",alignItems:"center",padding:"0 32px",gap:20,cursor:"pointer"}} onClick={()=>setExpanded(!expanded)}>
+        {/* Regime badge */}
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>
+          <span style={{fontFamily:T.display,fontSize:15,fontWeight:700,color:"#fff",letterSpacing:"0.02em"}}>{regimeConfig.label}</span>
+          <span style={{fontSize:11,color:"rgba(255,255,255,0.4)",fontWeight:300}}>{regimeConfig.subtitle||""}</span>
+        </div>
+        {/* Confidence */}
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"3px 10px",borderRadius:4,background:"rgba(255,255,255,0.07)"}}>
+          <span style={{fontSize:13,fontWeight:600,color:"#fff",fontFamily:T.mono}}>{conf}%</span>
+          {delta!==0&&<span style={{fontSize:10,fontWeight:600,color:delta>0?"#4ade80":"#f87171",fontFamily:T.mono}}>{delta>0?"+":""}{delta.toFixed(1)}</span>}
+        </div>
+        {/* Driver pills */}
+        <div style={{display:"flex",gap:6}}>
+          {Object.entries(drivers).slice(0,4).map(([k,v])=>(
+            <DriverPill key={k} label={k} score={typeof v==="object"?v.score:v}/>
+          ))}
+        </div>
+        {/* Transitions */}
+        {transitions.length>0&&(
+          <div style={{display:"flex",gap:4,marginLeft:"auto",alignItems:"center"}}>
+            <span style={{fontSize:9,color:"rgba(255,255,255,0.3)",fontFamily:T.mono,marginRight:4}}>NEXT 30D</span>
+            {transitions.map(t=>{
+              const RCOLS={"SURGE":"#16a34a","CRUISE":"#22c55e","PRESSURE":"#b45309","SLIDE":"#f97316","SHOCK":"#dc2626","FOG":"#7c3aed"};
+              const tc=RCOLS[t.regime]||"#fff";
+              return(
+                <div key={t.regime} style={{display:"flex",alignItems:"center",gap:3,padding:"2px 7px",borderRadius:3,background:"rgba(255,255,255,0.06)"}}>
+                  <span style={{fontSize:9,color:"rgba(255,255,255,0.4)",fontFamily:T.mono}}>{t.regime.slice(0,3)}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:tc,fontFamily:T.mono}}>{Math.round(t.probability*100)}%</span>
+                </div>
+              );
+            })}
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:4}}>
-            <span style={{fontSize:12,opacity:0.8}}>{Math.round(regimeConfig.confidence||regime.confidence)}%</span>
-            {regimeConfig.confidenceDelta!==undefined&&<span style={{fontSize:10,color:regimeConfig.confidenceDelta>=0?'#16a34a':'#f97316',fontFamily:T.mono}}>{regimeConfig.confidenceDelta>=0?"+":""}{regimeConfig.confidenceDelta.toFixed(1)}pts</span>}
+        )}
+        {/* Status + controls */}
+        <div style={{display:"flex",alignItems:"center",gap:10,marginLeft:transitions.length>0?0:"auto"}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:4,background:"rgba(255,255,255,0.06)"}}>
+            <div style={{width:5,height:5,borderRadius:"50%",background:isReplayMode?"#a78bfa":engineError?"#f87171":"#4ade80"}}/>
+            <span style={{fontSize:9,fontFamily:T.mono,color:"rgba(255,255,255,0.5)",letterSpacing:"0.1em"}}>{isReplayMode?"REPLAY":engineError?"OFFLINE":"LIVE"}</span>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:12,fontFamily:T.mono,fontSize:10}}>
-            {['volatility','momentum','liquidity'].map(k=>(
-              <div key={k} style={{display:'flex',alignItems:'center',gap:4}}>
-                <span style={{opacity:0.6}}>{k.slice(0,3).toUpperCase()}</span>
-                <span style={{color:driverColors[k],fontWeight:600}}>{driverSymbols[k]}</span>
-                <span style={{opacity:0.8,fontSize:9}}>{Math.abs(regime.drivers[k]).toFixed(1)}s</span>
-              </div>
+          <div style={{display:"flex",background:"rgba(255,255,255,0.08)",borderRadius:4,overflow:"hidden"}}>
+            {["auto","manual"].map(m=>(
+              <button key={m} onClick={e=>{e.stopPropagation();setRegime({...regime,mode:m});}}
+                style={{padding:"4px 10px",fontSize:10,fontWeight:600,border:"none",cursor:"pointer",
+                  background:regime.mode===m?"rgba(255,255,255,0.15)":"transparent",
+                  color:regime.mode===m?"#fff":"rgba(255,255,255,0.4)",
+                  textTransform:"uppercase",fontFamily:T.mono,transition:"all 0.15s"}}>
+                {m}
+              </button>
             ))}
           </div>
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:16,fontSize:11,fontFamily:T.mono}}>
-          <span style={{opacity:0.6,fontSize:10,textTransform:'uppercase'}}>Next 30D</span>
-          {Object.entries(liveTransitions).slice(0,3).map(([r,prob])=>{
-            const rColor=REGIME_COLORS[r.toUpperCase()]||REGIME_PARAMETERS[r]?.color||'#fff';
-            return(
-              <div key={r} style={{display:'flex',alignItems:'center',gap:4,padding:'2px 6px',borderRadius:3,backgroundColor:r===regime.current?'rgba(255,255,255,0.15)':'transparent'}}>
-                <span style={{fontSize:9,textTransform:'uppercase',opacity:0.8}}>{r.slice(0,3)}</span>
-                <span style={{fontWeight:600,color:rColor}}>{Math.round(prob*100)}%</span>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{display:'flex',alignItems:'center',gap:12}}>
-          <div style={{padding:'4px 10px',borderRadius:4,background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',display:'flex',alignItems:'center',gap:6}}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:engineError?'#dc2626':'#16a34a',display:'inline-block'}}/>
-            <span style={{fontSize:9,fontFamily:T.mono,letterSpacing:'0.1em',opacity:0.8}}>{isReplayMode?"REPLAY":engineError?"OFFLINE":"LIVE"}</span>
-          </div>
-          <button onClick={refresh} style={{background:'none',border:'none',color:'rgba(255,255,255,0.4)',cursor:'pointer',fontSize:12,padding:'4px 6px'}} title="Refresh Engine A"> </button>
-          <div style={{display:'flex',backgroundColor:C.navyLight,borderRadius:4,overflow:'hidden'}}>
-            {['auto','manual'].map(m=>(
-              <button key={m} style={{padding:'6px 12px',fontSize:11,fontWeight:600,border:'none',cursor:'pointer',backgroundColor:regime.mode===m?'#fff':'transparent',color:regime.mode===m?C.navy:'#fff',transition:'all 0.2s',textTransform:'uppercase'}} onClick={()=>setRegime({...regime,mode:m})}>{m.toUpperCase()}</button>
-            ))}
-          </div>
-          <select value={regime.timeHorizon} onChange={e=>setRegime({...regime,timeHorizon:e.target.value})} style={{backgroundColor:C.navyLight,border:`1px solid ${C.navyLight}`,borderRadius:4,fontSize:11,padding:'6px 10px',color:'#fff',cursor:'pointer'}}>
-            {['1M','3M','6M','1Y'].map(h=><option key={h} value={h}>{h}</option>)}
+          <select value={regime.timeHorizon} onChange={e=>{e.stopPropagation();setRegime({...regime,timeHorizon:e.target.value});}}
+            onClick={e=>e.stopPropagation()}
+            style={{background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:4,fontSize:10,padding:"4px 8px",color:"rgba(255,255,255,0.7)",cursor:"pointer",fontFamily:T.mono}}>
+            {["1M","3M","6M","1Y"].map(h=><option key={h} value={h} style={{background:C.navy}}>{h}</option>)}
           </select>
+          <button onClick={e=>{e.stopPropagation();refresh();}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.25)",cursor:"pointer",fontSize:12,padding:"0 4px"}} title="Refresh">&#8635;</button>
+          <span style={{fontSize:9,color:"rgba(255,255,255,0.2)",fontFamily:T.mono}}>{expanded?" ":" "}</span>
         </div>
       </div>
-      <div style={{borderTop:'1px solid rgba(255,255,255,0.1)',background:'linear-gradient(135deg,rgba(255,255,255,0.05) 0%,rgba(255,255,255,0.02) 100%)',padding:'16px 32px',fontSize:12}}>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:24}}>
-          <div>
-            <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.6,marginBottom:8}}>Market Environment</div>
-            {[['VIX','14.2','(-2.1)'],['MOVE','89.3','(-1.7)'],['Credit','Tight','(HYG +0.8%)']].map(([l,v,s],i)=>(
-              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{l}: </span><span style={{color:'#16a34a',fontWeight:600}}>{v} </span><span style={{opacity:0.6,fontSize:10}}>{s}</span></div>
-            ))}
-          </div>
-          <div>
-            <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.6,marginBottom:8}}>Signal Strength</div>
-            {[['Volatility',regime.drivers.volatility>0?'High':'Low',driverColors.volatility,regime.drivers.volatility],['Momentum',regime.drivers.momentum>0?'Positive':'Negative',driverColors.momentum,regime.drivers.momentum],['Liquidity',regime.drivers.liquidity>0?'Abundant':'Tight',driverColors.liquidity,regime.drivers.liquidity]].map(([label,txt,color,val],i)=>(
-              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{label}: </span><span style={{color,fontWeight:600}}>{txt} </span><span style={{opacity:0.6,fontSize:10}}>({val.toFixed(1)}s)</span></div>
-            ))}
-          </div>
-          <div>
-            <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.6,marginBottom:8}}>Historical Context</div>
-            {[['Duration','127 days'],['Avg Length','184 days'],['Last Change','Oct 15, 2025']].map(([l,v],i)=>(
-              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{l}: </span><span style={{fontWeight:600}}>{v}</span></div>
-            ))}
-          </div>
-          <div>
-            <div style={{fontSize:10,textTransform:'uppercase',letterSpacing:'0.08em',opacity:0.6,marginBottom:8}}>Regime Performance</div>
-            {[['Equity','+12.4%',true],['Bonds','+3.2%',true],['Commodities','-2.1%',false]].map(([l,v,pos],i)=>(
-              <div key={i} style={{marginBottom:4}}><span style={{opacity:0.8}}>{l}: </span><span style={{color:pos?'#16a34a':'#dc2626',fontWeight:600}}>{v}</span></div>
-            ))}
-          </div>
+      {/* Expanded detail panel */}
+      {expanded&&(
+        <div style={{borderTop:"1px solid rgba(255,255,255,0.08)",padding:"16px 32px 20px",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:24,fontSize:12,animation:"fadeUp 0.2s ease"}}>
+          {[
+            {title:"Market Environment",rows:[["VIX","14.2 (-2.1)"],["MOVE","89.3 (-1.7)"],["Credit","Tight (HYG +0.8%)"]]},
+            {title:"Signal Strength",rows:Object.entries(drivers).map(([k,v])=>{const s=typeof v==="object"?v.score:v;return[k.charAt(0).toUpperCase()+k.slice(1),(typeof v==="object"?v.label:"")+(s>=0?" +":" ")+s.toFixed(1)+"s"];})},
+            {title:"Historical Context",rows:[["Duration",(regimeConfig.duration_days||127)+" days"],["Avg Length","184 days"],["Last Change","Oct 15, 2025"]]},
+            {title:"30D Transitions",rows:transitions.map(t=>[t.regime,Math.round(t.probability*100)+"%"])},
+          ].map(({title,rows})=>(
+            <div key={title}>
+              <div style={{fontSize:9,textTransform:"uppercase",letterSpacing:"0.1em",color:"rgba(255,255,255,0.3)",marginBottom:10,fontFamily:T.mono}}>{title}</div>
+              {rows.map(([l,v],i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                  <span style={{color:"rgba(255,255,255,0.45)",fontSize:11}}>{l}</span>
+                  <span style={{color:"rgba(255,255,255,0.85)",fontWeight:500,fontSize:11}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2173,9 +2189,9 @@ function DemoTab({demoP}){
           </div>
         </div>
       )}
-      {isRegimeActive&&<div style={{marginBottom:24,padding:16,borderRadius:8,backgroundColor:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`}}>
-        <span style={{fontWeight:600,color:regimeConfig.color}}>Regime Impact: </span>
-        <span style={{color:C.navy}}>{regimeConfig.description}</span>
+      {isRegimeActive&&(regimeConfig.narrative?.text||regimeConfig.instinct)&&<div style={{marginBottom:24,padding:"12px 16px",borderRadius:8,background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,fontSize:13,lineHeight:1.5}}>
+        <span style={{fontWeight:700,color:regimeConfig.color,marginRight:6}}>{regimeConfig.label}</span>
+        <span style={{color:C.navy}}>{regimeConfig.narrative?.text||regimeConfig.instinct}</span>
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:32}}>
         {metrics.map((m,i)=><MetricCard key={i} {...m}/>)}
@@ -3552,42 +3568,34 @@ function Dashboard({token,userEmail,onLogout}){
   else if(tab==="learn")content=<LearnTab/>
   return(
     <div style={{minHeight:"100vh",background:C.bg,fontFamily:T.body,color:C.navy,display:"flex",flexDirection:"column"}}>
-      <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 32px",borderBottom:`1px solid ${C.border}`,background:C.white,flexShrink:0}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <span style={{fontFamily:T.display,fontSize:22,fontWeight:700,color:C.navy,letterSpacing:"-0.02em"}}>GrineOS</span>
-          <span style={{fontSize:12,color:C.soft}}>Regime-Driven Allocation Intelligence</span>
+      <header style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 32px",borderBottom:`1px solid ${C.border}`,background:C.white,flexShrink:0,height:56}}>
+        <div style={{display:"flex",alignItems:"center",gap:24}}>
+          <span style={{fontFamily:T.display,fontSize:20,fontWeight:700,color:C.navy,letterSpacing:"-0.02em"}}>GrineOS</span>
+          <div style={{display:"flex",gap:0}}>
+            {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"0 16px",height:56,border:"none",borderBottom:tab===t.id?`2px solid ${C.navy}`:"2px solid transparent",background:"transparent",color:tab===t.id?C.navy:C.faint,fontFamily:T.body,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"color .15s",whiteSpace:"nowrap"}}>{t.label}</button>)}
+          </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:16}}>
-          <button onClick={()=>setShowReplay(!showReplay)} style={{...btnOutline,padding:"7px 16px",fontSize:12,display:'flex',alignItems:'center',gap:7,borderColor:showReplay?"#7c3aed":C.border,color:showReplay?"#7c3aed":"inherit",background:showReplay?"rgba(124,58,237,0.08)":"transparent"}}>
-            <span style={{fontSize:11}}>&#x25C4;&#x25BA;</span>
-            <span>Replay</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <button onClick={()=>setShowReplay(!showReplay)}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 14px",borderRadius:6,border:`1px solid ${showReplay?"#7c3aed":C.border}`,background:showReplay?"rgba(124,58,237,0.06)":"transparent",color:showReplay?"#7c3aed":C.soft,fontSize:12,cursor:"pointer",fontFamily:T.body,transition:"all .15s"}}>
+            <span style={{fontSize:10}}>&#9664;&#9654;</span>Replay
           </button>
-          <button onClick={()=>setShowIC(true)} style={{...btnPrimary,padding:"7px 18px",fontSize:12,display:'flex',alignItems:'center',gap:8,background:"linear-gradient(135deg,"+C.navy+" 0%,"+C.navyLight+" 100%)"}}>
-            <span style={{fontSize:13}}>IC</span>
-            <span>Generate Brief</span>
+          <button onClick={()=>setShowIC(true)}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"7px 16px",borderRadius:6,border:"none",background:C.navy,color:"#fff",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:T.body}}>
+            IC&nbsp;Generate Brief
           </button>
-          <button onClick={()=>setRegimeSidebarOpen(!regimeSidebarOpen)} style={{...btnOutline,padding:"6px 14px",fontSize:11,display:'flex',alignItems:'center',gap:6}}>
-            <span style={{fontSize:12}}> </span>Regime Intel
+          <div style={{width:1,height:20,background:C.border,margin:"0 4px"}}/>
+          <button onClick={()=>setTab("profile")} title={`${profile.risk_tolerance} / ${profile.horizon}`}
+            style={{padding:"6px 12px",borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:C.soft,fontSize:11,cursor:"pointer",fontFamily:T.mono,whiteSpace:"nowrap"}}>
+            {profile.risk_tolerance.charAt(0).toUpperCase()+profile.risk_tolerance.slice(1)} . {profile.horizon.charAt(0).toUpperCase()+profile.horizon.slice(1)}
           </button>
-          <button onClick={()=>setTab("profile")} style={{...btnOutline,padding:"6px 12px",fontSize:11,display:'flex',alignItems:'center',gap:6,borderColor:C.border}}>
-            <span style={{fontSize:14}}>
-              {profile.risk_tolerance==="conservative"?" ":profile.risk_tolerance==="aggressive"?" ":"  "}
-            </span>
-            <span style={{fontFamily:T.mono,fontSize:10,color:C.soft}}>
-              {profile.risk_tolerance.charAt(0).toUpperCase()+profile.risk_tolerance.slice(1)} . {profile.horizon.charAt(0).toUpperCase()+profile.horizon.slice(1)}
-            </span>
-          </button>
-          <span style={{fontSize:12,color:C.soft}}>KG&Co Capital Advisory . London . New York</span>
-          <div style={{width:1,height:16,background:C.border}}/>
-          <span style={{fontSize:12,color:C.faint}}>{userEmail}</span>
-          <button onClick={onLogout} style={{...btnOutline,padding:"6px 14px",fontSize:11,color:C.red,borderColor:C.red+"44"}}>Sign Out</button>
+          <span style={{fontSize:11,color:C.faint,maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{userEmail}</span>
+          <button onClick={onLogout} style={{padding:"6px 12px",borderRadius:6,border:`1px solid ${C.red}33`,background:"transparent",color:C.red,fontSize:11,cursor:"pointer",fontFamily:T.body}}>Sign Out</button>
         </div>
       </header>
       <RegimeTopBar/>
       {showReplay&&<RegimeReplayBar onExit={()=>{setShowReplay(false);}}/>}
-      <nav style={{display:"flex",gap:0,borderBottom:`1px solid ${C.border}`,background:C.white,paddingLeft:32,flexShrink:0}}>
-        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"12px 20px",border:"none",borderBottom:tab===t.id?`2px solid ${C.navy}`:"2px solid transparent",background:"transparent",color:tab===t.id?C.navy:C.soft,fontFamily:T.body,fontSize:13,fontWeight:tab===t.id?600:400,cursor:"pointer",transition:"all .15s"}}>{t.label}</button>)}
-      </nav>
+
       <main style={{flex:1,overflow:"auto",position:'relative'}}>{content}</main>
       <RegimeAnalysisSidebar isOpen={regimeSidebarOpen} onToggle={()=>setRegimeSidebarOpen(false)}/>
       <footer style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 32px",borderTop:`1px solid ${C.border}`,background:C.white,fontSize:11,color:C.faint,flexShrink:0}}>
