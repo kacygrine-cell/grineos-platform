@@ -2241,8 +2241,10 @@ function GrineLogo({size=32, color="#16a34a"}){
   );
 }
 
-function AgentTab({token,demoP}){
-  const[messages,setMessages]=useState([]);
+function AgentTab({token,demoP,messages=[],setMessages}){
+  const[localMessages,setLocalMessages]=useState(messages);
+  const _messages = setMessages ? messages : localMessages;
+  const _setMessages = setMessages || setLocalMessages;
   const[input,setInput]=useState("");
   const[loading,setLoading]=useState(false);
   const{regimeConfig}=useRegime();
@@ -2257,7 +2259,7 @@ function AgentTab({token,demoP}){
   const sendMessage=async()=>{
     if(!input.trim()||loading)return;
     const userMsg={role:"user",content:input};
-    setMessages(prev=>[...prev,userMsg]);
+    _setMessages(prev=>[...prev,userMsg]);
     const q=input;setInput("");setLoading(true);
     try{
       const portfolio=getActivePortfolio(demoP);
@@ -2266,7 +2268,7 @@ function AgentTab({token,demoP}){
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           message:q,
-          history:messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6).map(m=>({role:m.role,content:m.content})),
+          history:_messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6).map(m=>({role:m.role,content:m.content})),
           portfolio_summary:portfolio
             ?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M | Holdings: ${holdingsSummary} | Risk: ${profile.risk_tolerance}/${profile.horizon} horizon/${profile.objective}`
             :`Demo $2M | Risk: ${profile.risk_tolerance}/${profile.horizon}/${profile.objective}`
@@ -2274,9 +2276,9 @@ function AgentTab({token,demoP}){
       });
       const data=await res.json();
       if(!res.ok)throw new Error(data.detail||"Agent error");
-      setMessages(prev=>[...prev,{role:"assistant",content:data.response||"No response."}]);
+      _setMessages(prev=>[...prev,{role:"assistant",content:data.response||"No response."}]);
     }catch(e){
-      setMessages(prev=>[...prev,{role:"assistant",content:`Error: ${e.message}`}]);
+      _setMessages(prev=>[...prev,{role:"assistant",content:`Error: ${e.message}`}]);
     }finally{setLoading(false);}
   };
 
@@ -2342,7 +2344,7 @@ function AgentTab({token,demoP}){
 
       {/* Messages */}
       <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"24px 40px",display:"flex",flexDirection:"column",gap:24}}>
-        {messages.length===0?(
+        {_messages.length===0?(
           <div style={{maxWidth:600}}>
             {/* Welcome message */}
             <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:24}}>
@@ -2367,7 +2369,7 @@ function AgentTab({token,demoP}){
               ))}
             </div>
           </div>
-        ):messages.map((msg,i)=>{
+        ):_messages.map((msg,i)=>{
           const isUser=msg.role==="user";
           return(
             <div key={i} style={{display:"flex",gap:14,alignItems:"flex-start",flexDirection:isUser?"row-reverse":"row",animation:`slideIn 0.2s ease both`}}>
@@ -2425,8 +2427,8 @@ function AgentTab({token,demoP}){
             style={{padding:"12px 24px",borderRadius:10,border:"none",background:input.trim()&&!loading?regimeConfig.color:"#e2e8f0",color:input.trim()&&!loading?"#fff":C.faint,fontSize:14,fontWeight:600,cursor:input.trim()&&!loading?"pointer":"default",fontFamily:"inherit",transition:"all 0.15s",flexShrink:0}}>
             {loading?<Spin/>:"Send"}
           </button>
-          {messages.length>0&&(
-            <button onClick={()=>setMessages([])}
+          {_messages.length>0&&(
+            <button onClick={()=>_setMessages([])}
               style={{padding:"12px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.faint,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
               Clear
             </button>
@@ -3605,6 +3607,7 @@ function Dashboard({token,userEmail,onLogout}){
   const[regimeSidebarOpen,setRegimeSidebarOpen]=useState(false);
   const[showIC,setShowIC]=useState(false);
   const[showReplay,setShowReplay]=useState(false);
+  const[agentMessages,setAgentMessages]=useState([]);
   const{regimeConfig,engineError,lastUpdated}=useRegime();
   const{profile}=useRiskProfile();
   const[showSetup,setShowSetup]=useState(!profile.completed);
@@ -3620,7 +3623,7 @@ function Dashboard({token,userEmail,onLogout}){
 
   let content;
   if(tab==="demo")content=<DemoTab demoP={demoP}/>;
-  else if(tab==="agent")content=<AgentTab token={token} demoP={demoP}/>;
+  else if(tab==="agent")content=<AgentTab token={token} demoP={demoP} messages={agentMessages} setMessages={setAgentMessages}/>;
   else if(tab==="optimizer")content=<EngineTab token={token} demoP={demoP} title="Portfolio Optimizer" desc="Regime-aware allocation optimization." endpoint="/api/v1/optimize" controls={[{key:"objective",label:"Objective",default:"max_sharpe",options:[{value:"max_sharpe",label:"Max Sharpe"},{value:"min_variance",label:"Min Variance"},{value:"risk_parity",label:"Risk Parity"}]}]}/>;
   else if(tab==="backtest")content=<BacktestTab token={token} demoP={demoP}/>;
   else if(tab==="scenarios")content=<ScenariosTab token={token} demoP={demoP}/>;
