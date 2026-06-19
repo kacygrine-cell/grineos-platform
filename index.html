@@ -2128,6 +2128,113 @@ function BenchmarkPanel({holdings, regimeConfig}){
   );
 }
 
+//    Engine B Panel                                                              
+function EngineBPanel(){
+  const[data,setData]=useState(null);
+  const[loading,setLoading]=useState(true);
+  const[err,setErr]=useState("");
+  const{regimeConfig}=useRegime();
+
+  useEffect(()=>{
+    fetch(`${ENGINE_A}/engine-b/compare`)
+      .then(r=>r.json())
+      .then(d=>{setData(d);setLoading(false);})
+      .catch(e=>{setErr(e.message);setLoading(false);});
+  },[]);
+
+  if(loading)return<div style={{padding:"16px 0",color:C.soft,fontSize:13,display:"flex",alignItems:"center",gap:8}}><Spin dark/>Loading Engine B macro signals...</div>;
+  if(err||!data)return null;
+
+  const RCOLS={"SURGE":"#16a34a","CRUISE":"#22c55e","PRESSURE":"#b45309","SLIDE":"#f97316","SHOCK":"#dc2626","FOG":"#7c3aed"};
+  const agree=data.agree;
+  const aColor=RCOLS[data.engine_a?.regime]||"#64748b";
+  const bColor=RCOLS[data.engine_b?.regime]||"#64748b";
+
+  const MacroStat=({label,value,unit})=>{
+    if(value===null||value===undefined)return null;
+    const v=parseFloat(value);
+    const color=isNaN(v)?C.soft:v>0?"#16a34a":v<0?"#dc2626":C.soft;
+    return(
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.borderLight}`}}>
+        <span style={{fontSize:11,color:C.soft}}>{label}</span>
+        <span style={{fontSize:12,fontWeight:600,color,fontFamily:T.mono}}>{v>0?"+":""}{v.toFixed(2)}{unit}</span>
+      </div>
+    );
+  };
+
+  return(
+    <div style={{marginTop:28,background:C.white,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{background:C.navy,padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <span style={{fontSize:12,fontWeight:700,color:"#fff",letterSpacing:"0.04em"}}>ENGINE B</span>
+          <span style={{fontSize:11,color:"rgba(255,255,255,0.4)",marginLeft:10}}>Macro Intelligence   FRED + Price Ensemble</span>
+        </div>
+        {!agree&&(
+          <span style={{fontSize:10,padding:"3px 10px",borderRadius:100,background:"rgba(251,146,60,0.2)",color:"#fb923c",fontFamily:T.mono,fontWeight:600}}>DIVERGENCE</span>
+        )}
+        {agree&&(
+          <span style={{fontSize:10,padding:"3px 10px",borderRadius:100,background:"rgba(22,163,74,0.15)",color:"#4ade80",fontFamily:T.mono,fontWeight:600}}>ALIGNED</span>
+        )}
+      </div>
+
+      <div style={{padding:20}}>
+        {/* Divergence warning */}
+        {data.divergence&&(
+          <div style={{marginBottom:16,padding:"10px 14px",borderRadius:8,background:"rgba(251,146,60,0.06)",border:"1px solid rgba(251,146,60,0.25)",fontSize:13,color:C.navy,lineHeight:1.5}}>
+            <strong style={{color:"#f97316"}}>Macro signal:</strong> {data.divergence}
+          </div>
+        )}
+
+        {/* A vs B comparison */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+          {[
+            {label:"Engine A   Price Signals",d:data.engine_a,color:aColor},
+            {label:"Engine B   Macro Ensemble",d:data.engine_b,color:bColor},
+          ].map(({label,d,color})=>(
+            <div key={label} style={{background:C.bg,borderRadius:8,padding:14,border:`1px solid ${C.border}`}}>
+              <div style={{fontSize:9,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8,fontFamily:T.mono}}>{label}</div>
+              <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
+                <span style={{fontSize:20,fontWeight:700,color,fontFamily:T.display}}>{d?.regime}</span>
+                <span style={{fontSize:12,color:C.soft}}>{d?.confidence?.toFixed(0)}% conf</span>
+              </div>
+              <div style={{fontSize:11,color:C.soft,fontStyle:"italic",lineHeight:1.4}}>{d?.instinct?.split(".")[0]}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Macro signals */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+          <div>
+            <div style={{fontSize:9,fontWeight:600,color:C.soft,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:T.mono}}>FRED Macro Readings</div>
+            {data.macro_signals&&Object.values(data.macro_signals).map((s,i)=>(
+              <MacroStat key={i} label={s.label} value={s.value} unit={s.unit||""}/>
+            ))}
+          </div>
+          <div>
+            <div style={{fontSize:9,fontWeight:600,color:C.soft,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10,fontFamily:T.mono}}>Driver Comparison (A vs B)</div>
+            {["growth","inflation","liquidity","volatility"].map(driver=>{
+              const a=data.engine_a?.drivers?.[driver]?.score??0;
+              const b=data.engine_b?.drivers?.[driver]?.score??0;
+              const diff=b-a;
+              return(
+                <div key={driver} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.borderLight}`}}>
+                  <span style={{fontSize:11,color:C.soft,width:80,textTransform:"capitalize"}}>{driver}</span>
+                  <span style={{fontSize:11,fontFamily:T.mono,color:a>=0?"#16a34a":"#dc2626"}}>{a>=0?"+":""}{a.toFixed(2)}</span>
+                  <span style={{fontSize:9,color:C.faint}}>vs</span>
+                  <span style={{fontSize:11,fontFamily:T.mono,color:b>=0?"#16a34a":"#dc2626"}}>{b>=0?"+":""}{b.toFixed(2)}</span>
+                  {Math.abs(diff)>0.3&&<span style={{fontSize:9,color:"#f97316",fontFamily:T.mono}}>({diff>0?"+":""}{diff.toFixed(2)})</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function DemoTab({demoP}){
   const{isRegimeActive,setIsRegimeActive,regimeConfig}=useRegime();
   const{useCustomPortfolio,setUseCustomPortfolio,customPortfolio,setCustomPortfolio,getActivePortfolio}=usePortfolio();
@@ -2225,6 +2332,7 @@ function DemoTab({demoP}){
         <h3 style={{fontSize:14,fontWeight:600,color:C.navy,marginBottom:16,textTransform:"uppercase",letterSpacing:"0.08em"}}>Portfolio vs GrineOS Optimal</h3>
         <BenchmarkPanel holdings={processedHoldings} regimeConfig={regimeConfig}/>
       </div>
+      <EngineBPanel/>
     </div>
   );
 }
