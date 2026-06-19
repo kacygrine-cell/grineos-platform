@@ -2229,6 +2229,18 @@ function DemoTab({demoP}){
   );
 }
 
+function GrineLogo({size=32, color="#16a34a"}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="16" fill={color}/>
+      <text x="16" y="21" textAnchor="middle" fill="white"
+        style={{fontSize:16,fontFamily:"Georgia,'Times New Roman',serif",fontWeight:700,letterSpacing:"-0.5px"}}>
+        G
+      </text>
+    </svg>
+  );
+}
+
 function AgentTab({token,demoP}){
   const[messages,setMessages]=useState([]);
   const[input,setInput]=useState("");
@@ -2236,6 +2248,11 @@ function AgentTab({token,demoP}){
   const{regimeConfig}=useRegime();
   const{getActivePortfolio}=usePortfolio();
   const{profile}=useRiskProfile();
+  const scrollRef=React.useRef(null);
+
+  React.useEffect(()=>{
+    if(scrollRef.current)scrollRef.current.scrollTop=scrollRef.current.scrollHeight;
+  },[messages,loading]);
 
   const sendMessage=async()=>{
     if(!input.trim()||loading)return;
@@ -2246,128 +2263,175 @@ function AgentTab({token,demoP}){
       const portfolio=getActivePortfolio(demoP);
       const holdingsSummary=portfolio?.holdings?.slice(0,8).map(h=>`${h.ticker} ${(h.weight||0).toFixed(1)}%`).join(", ")||"";
       const res=await fetch(`${ENGINE_A}/agent/chat`,{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
+        method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           message:q,
           history:messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-6).map(m=>({role:m.role,content:m.content})),
-          portfolio_summary:portfolio?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M | Holdings: ${holdingsSummary} | Risk: ${profile.risk_tolerance}/${profile.horizon} horizon/${profile.objective}`:`Demo $2M | Risk: ${profile.risk_tolerance}/${profile.horizon}/${profile.objective}`
+          portfolio_summary:portfolio
+            ?`${portfolio.clientName} $${((portfolio.totalValue||0)/1e6).toFixed(2)}M | Holdings: ${holdingsSummary} | Risk: ${profile.risk_tolerance}/${profile.horizon} horizon/${profile.objective}`
+            :`Demo $2M | Risk: ${profile.risk_tolerance}/${profile.horizon}/${profile.objective}`
         })
       });
       const data=await res.json();
       if(!res.ok)throw new Error(data.detail||"Agent error");
-      const reply=data.response||"No response.";
-      setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
+      setMessages(prev=>[...prev,{role:"assistant",content:data.response||"No response."}]);
     }catch(e){
       setMessages(prev=>[...prev,{role:"assistant",content:`Error: ${e.message}`}]);
     }finally{setLoading(false);}
   };
 
-  const suggestions=["What should I do with my portfolio in this regime?","Is now a good time to add equity risk?","What's the biggest threat to this regime continuing?","How should I position for a regime change?","Explain the current market drivers"];
+  // Claude-style markdown renderer
+  const renderContent=(text)=>{
+    if(!text)return null;
+    const NL=String.fromCharCode(10);
+    const applyInline=(txt)=>{
+      const parts=txt.split(/(\*\*[^*]+\*\*)/g);
+      return parts.map((p,i)=>
+        p.startsWith("**")&&p.endsWith("**")
+          ?<strong key={i} style={{fontWeight:600,color:"inherit"}}>{p.slice(2,-2)}</strong>
+          :p
+      );
+    };
+    const paragraphs=text.split(NL+NL).map(p=>p.trim()).filter(Boolean);
+    return paragraphs.map((para,idx)=>{
+      const lines=para.split(NL);
+      const isBullet=lines.length>1&&lines.every(l=>{const t=l.trim();return t[0]==="-"||t[0]==="*";});
+      const isNumbered=lines.length>1&&lines.every(l=>/^[0-9]/.test(l.trim()));
+      if(isBullet) return(
+        <ul key={idx} style={{margin:"6px 0 6px 4px",paddingLeft:20,display:"flex",flexDirection:"column",gap:4}}>
+          {lines.map((l,j)=><li key={j} style={{fontSize:15,lineHeight:1.7,color:C.navy}}>{applyInline(l.replace(/^[-*]\s*/,""))}</li>)}
+        </ul>
+      );
+      if(isNumbered) return(
+        <ol key={idx} style={{margin:"6px 0 6px 4px",paddingLeft:22,display:"flex",flexDirection:"column",gap:4}}>
+          {lines.map((l,j)=><li key={j} style={{fontSize:15,lineHeight:1.7,color:C.navy}}>{applyInline(l.replace(/^[0-9]+[.)]\s*/,""))}</li>)}
+        </ol>
+      );
+      return<p key={idx} style={{margin:0,fontSize:15,lineHeight:1.72,color:C.navy}}>{applyInline(para)}</p>;
+    });
+  };
+
+  const suggestions=[
+    "What should I do with my portfolio in this regime?",
+    "Is now a good time to add equity risk?",
+    "What is the latest Fed announcement?",
+    "How should I position for a regime change?",
+  ];
+
+  const FONT={fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"};
 
   return(
-    <div style={{padding:"32px 40px",maxWidth:1000,animation:"fadeUp .4s ease",height:"calc(100vh - 200px)",display:"flex",flexDirection:"column"}}>
-      <div style={{marginBottom:24,borderBottom:`1px solid ${C.border}`,paddingBottom:16}}>
-        <h2 style={{fontFamily:T.display,fontSize:26,fontWeight:600,color:C.navy,fontStyle:"italic"}}>Grine</h2>
-        <div style={{marginTop:10,padding:"8px 14px",borderRadius:6,backgroundColor:regimeConfig.bgColor,display:"inline-flex",alignItems:"center",gap:8}}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:regimeConfig.color,display:"inline-block"}}/>
-          <span style={{fontSize:12,color:regimeConfig.color,fontWeight:600}}>
-            {regimeConfig.label} . {regimeConfig.confidence?.toFixed(0)||"-"}% confidence . {regimeConfig.instinct?.split(".")[0]}
-          </span>
+    <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 112px)",background:C.bg,...FONT}}>
+      {/* Header */}
+      <div style={{padding:"20px 40px 0",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+          <GrineLogo size={36} color={regimeConfig.color}/>
+          <div>
+            <div style={{fontFamily:T.display,fontSize:22,fontWeight:700,color:C.navy,letterSpacing:"-0.02em"}}>Grine</div>
+            <div style={{fontSize:12,color:C.soft,marginTop:1}}>KG&Co Institutional Intelligence</div>
+          </div>
+          <div style={{marginLeft:16,padding:"5px 12px",borderRadius:100,background:regimeConfig.bgColor,border:`1px solid ${regimeConfig.color}33`,display:"flex",alignItems:"center",gap:7}}>
+            <span style={{width:6,height:6,borderRadius:"50%",background:regimeConfig.color,display:"inline-block"}}/>
+            <span style={{fontSize:12,color:regimeConfig.color,fontWeight:600}}>
+              {regimeConfig.label} {regimeConfig.confidence?.toFixed(0)}%   {regimeConfig.instinct?.split(".")[0]||""}
+            </span>
+          </div>
         </div>
+        <div style={{height:1,background:C.border}}/>
       </div>
 
-      <div style={{flex:1,overflowY:"auto",marginBottom:16}}>
+      {/* Messages */}
+      <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"24px 40px",display:"flex",flexDirection:"column",gap:24}}>
         {messages.length===0?(
-          <div>
-            <div style={{color:C.faint,textAlign:"center",fontStyle:"italic",marginBottom:24,marginTop:20}}>
-              Ask me anything about your portfolio - I have live regime context from Engine A.
+          <div style={{maxWidth:600}}>
+            {/* Welcome message */}
+            <div style={{display:"flex",gap:14,alignItems:"flex-start",marginBottom:24}}>
+              <div style={{flexShrink:0,marginTop:2}}><GrineLogo size={32} color={regimeConfig.color}/></div>
+              <div style={{background:C.white,borderRadius:"4px 16px 16px 16px",padding:"16px 20px",border:`1px solid ${C.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.05)",maxWidth:540}}>
+                <p style={{margin:"0 0 10px",fontSize:15,lineHeight:1.7,color:C.navy}}>
+                  Hi   I'm Grine. I'm tracking <strong>live regime intelligence</strong> from Engine A alongside your portfolio.
+                </p>
+                <p style={{margin:"0 0 10px",fontSize:15,lineHeight:1.7,color:C.navy}}>
+                  Right now the engine is reading <strong style={{color:regimeConfig.color}}>{regimeConfig.label}</strong> at {regimeConfig.confidence?.toFixed(0)}% confidence. {regimeConfig.instinct?.split(".")[0]}.
+                </p>
+                <p style={{margin:0,fontSize:15,lineHeight:1.7,color:C.soft}}>What would you like to explore?</p>
+              </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {/* Suggestion chips */}
+            <div style={{paddingLeft:46,display:"flex",flexDirection:"column",gap:8}}>
               {suggestions.map((s,i)=>(
-                <button key={i} onClick={()=>setInput(s)} style={{...btnOutline,textAlign:"left",padding:"10px 14px",fontSize:13,fontWeight:400,color:C.navy,borderColor:C.border,lineHeight:1.4}}>{s}</button>
+                <button key={i} onClick={()=>{setInput(s);}} style={{textAlign:"left",padding:"10px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:C.white,color:C.navy,fontSize:14,cursor:"pointer",fontFamily:"inherit",lineHeight:1.4,transition:"border-color 0.15s"}}
+                  onMouseEnter={e=>e.target.style.borderColor=regimeConfig.color}
+                  onMouseLeave={e=>e.target.style.borderColor=C.border}
+                >{s}</button>
               ))}
             </div>
           </div>
         ):messages.map((msg,i)=>{
           const isUser=msg.role==="user";
-          // Parse Grine response into labelled sections
-            const applyBold=(txt)=>{
-    if(!txt)return txt;
-    const out=[];let i=0;
-    while(i<txt.length){
-      const ds=txt.indexOf('**',i);
-      if(ds===-1){out.push(txt.slice(i));break;}
-      const de=txt.indexOf('**',ds+2);
-      if(de===-1){out.push(txt.slice(i));break;}
-      if(ds>i)out.push(txt.slice(i,ds));
-      out.push(React.createElement('strong',{key:i,style:{fontWeight:700}},txt.slice(ds+2,de)));
-      i=de+2;
-    }
-    return out;
-  };
-  const parseGrine=(text)=>{
-    if(!text)return null;
-    // Split on double newlines without using literal \n in string comparisons
-    const NL=String.fromCharCode(10);
-    const DBL=NL+NL;
-    const paras=text.split(DBL).map(p=>p.trim()).filter(Boolean);
-    if(!paras.length)return<p style={{fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(text)}</p>;
-    return(
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {paras.map((para,idx)=>{
-          const lines=para.split(NL);
-          const isBullet=lines.length>1&&lines.every(l=>{const t=l.trim();return t[0]==="-"||t[0]==="*";});
-          if(isBullet){
-            return<ul key={idx} style={{margin:0,paddingLeft:20,display:"flex",flexDirection:"column",gap:4}}>
-              {lines.map((l,j)=><li key={j} style={{fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(l.replace(/^[-*]\s*/,""))}</li>)}
-            </ul>;
-          }
-          return<p key={idx} style={{margin:0,fontSize:14,lineHeight:1.65,color:C.navy}}>{applyBold(para)}</p>;
-        })}
-      </div>
-    );
-  };
           return(
-            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:isUser?"flex-end":"flex-start",marginBottom:16,animation:`slideIn 0.25s ease ${i*0.03}s both`}}>
-              <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono,paddingLeft:isUser?0:2,paddingRight:isUser?2:0}}>
-                {isUser?"You":"Grine"}
+            <div key={i} style={{display:"flex",gap:14,alignItems:"flex-start",flexDirection:isUser?"row-reverse":"row",animation:`slideIn 0.2s ease both`}}>
+              {/* Avatar */}
+              <div style={{flexShrink:0,marginTop:2}}>
+                {isUser
+                  ?<div style={{width:32,height:32,borderRadius:"50%",background:C.navy,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{fontSize:13,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>K</span>
+                  </div>
+                  :<GrineLogo size={32} color={regimeConfig.color}/>
+                }
               </div>
+              {/* Bubble */}
               <div style={{
                 maxWidth:"72%",
-                padding:isUser?"11px 16px":"16px 20px",
-                borderRadius:isUser?"18px 18px 4px 18px":"4px 18px 18px 18px",
-                background:isUser?C.navy2:C.white,
+                padding:"14px 18px",
+                borderRadius:isUser?"16px 4px 16px 16px":"4px 16px 16px 16px",
+                background:isUser?C.navy:C.white,
                 border:isUser?"none":`1px solid ${C.border}`,
-                boxShadow:isUser?"0 2px 8px rgba(26,35,50,0.18)":"0 1px 4px rgba(0,0,0,0.06)"
+                boxShadow:isUser?"0 2px 8px rgba(15,25,35,0.15)":"0 1px 3px rgba(0,0,0,0.05)",
+                display:"flex",flexDirection:"column",gap:8,
               }}>
                 {isUser
-                  ?<div style={{fontSize:14,lineHeight:1.55,color:"#ffffff",fontWeight:500}}>{msg.content}</div>
-                  :parseGrine(msg.content)
+                  ?<div style={{fontSize:15,lineHeight:1.65,color:"#fff",fontFamily:"inherit"}}>{msg.content}</div>
+                  :<div style={{display:"flex",flexDirection:"column",gap:8}}>{renderContent(msg.content)}</div>
                 }
               </div>
             </div>
           );
         })}
+
         {loading&&(
-          <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",marginBottom:14}}>
-            <div style={{fontSize:10,color:C.faint,textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4,fontFamily:T.mono,paddingLeft:4}}>Grine</div>
-            <div style={{padding:"12px 20px",borderRadius:"18px 18px 18px 4px",background:C.white,border:`1px solid ${C.border}`,boxShadow:"0 1px 4px rgba(0,0,0,0.06)",display:"flex",alignItems:"center",gap:5}}>
-              {[0,1,2].map(i=><span key={i} style={{width:7,height:7,borderRadius:"50%",background:C.faint,display:"inline-block",animation:`pulse ${0.8+i*0.15}s ease infinite`}}/>)}
+          <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
+            <GrineLogo size={32} color={regimeConfig.color}/>
+            <div style={{padding:"14px 18px",borderRadius:"4px 16px 16px 16px",background:C.white,border:`1px solid ${C.border}`,boxShadow:"0 1px 3px rgba(0,0,0,0.05)",display:"flex",alignItems:"center",gap:5}}>
+              {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:regimeConfig.color,display:"inline-block",opacity:0.4,animation:`pulse ${0.7+i*0.15}s ease infinite`}}/>)}
             </div>
           </div>
         )}
       </div>
 
-      <div style={{display:"flex",gap:10}}>
-        <input style={{...inp,flex:1}} value={input} onChange={e=>setInput(e.target.value)}
-          onKeyPress={e=>e.key==="Enter"&&sendMessage()}
-          placeholder="Ask about allocation, regime implications, risk management "
-          disabled={loading}/>
-        <button onClick={sendMessage} disabled={loading||!input.trim()} style={{...btnPrimary,opacity:loading||!input.trim()?0.5:1,minWidth:72}}>
-          {loading?<Spin/>:"Send"}
-        </button>
-        {messages.length>0&&<button onClick={()=>setMessages([])} style={{...btnOutline,padding:"10px 14px",fontSize:12,color:C.faint}}>Clear</button>}
+      {/* Input */}
+      <div style={{padding:"16px 40px 24px",borderTop:`1px solid ${C.border}`,background:C.white,flexShrink:0}}>
+        <div style={{display:"flex",gap:10,maxWidth:800}}>
+          <input
+            value={input} onChange={e=>setInput(e.target.value)}
+            onKeyPress={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+            placeholder="Ask about allocation, regime implications, risk management..."
+            disabled={loading}
+            style={{flex:1,padding:"12px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:"#fff",fontSize:15,outline:"none",fontFamily:"inherit",color:C.navy,boxSizing:"border-box",transition:"border-color 0.15s"}}
+            onFocus={e=>e.target.style.borderColor=regimeConfig.color}
+            onBlur={e=>e.target.style.borderColor=C.border}
+          />
+          <button onClick={sendMessage} disabled={loading||!input.trim()}
+            style={{padding:"12px 24px",borderRadius:10,border:"none",background:input.trim()&&!loading?regimeConfig.color:"#e2e8f0",color:input.trim()&&!loading?"#fff":C.faint,fontSize:14,fontWeight:600,cursor:input.trim()&&!loading?"pointer":"default",fontFamily:"inherit",transition:"all 0.15s",flexShrink:0}}>
+            {loading?<Spin/>:"Send"}
+          </button>
+          {messages.length>0&&(
+            <button onClick={()=>setMessages([])}
+              style={{padding:"12px 16px",borderRadius:10,border:`1px solid ${C.border}`,background:"transparent",color:C.faint,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+              Clear
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
